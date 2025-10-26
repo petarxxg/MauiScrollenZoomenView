@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using TischplanApp.Controls;
 
 namespace TischplanApp;
 
@@ -18,6 +19,12 @@ public static class MauiProgram
                 // Optional: Add custom fonts if available
                 // fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 // fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+            })
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if ANDROID
+                handlers.AddHandler<ZoomPanCanvas, Platforms.Android.Handlers.ZoomPanCanvasHandler>();
+#endif
             });
 
 #if DEBUG

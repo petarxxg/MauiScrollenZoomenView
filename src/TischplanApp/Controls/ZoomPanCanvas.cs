@@ -22,6 +22,9 @@ public class ZoomPanCanvas : ContentView
     private double _yOffset = 0.0;
     private bool _isInitialized = false;
 
+    // Public property for Android Handler to access
+    public ContentView ContentHost => _contentHost;
+
     public ZoomPanCanvas()
     {
         // Create the canvas
@@ -51,7 +54,9 @@ public class ZoomPanCanvas : ContentView
 
         Content = _rootGrid;
 
-        // Simple gesture recognizers
+#if !ANDROID
+        // On non-Android platforms, use MAUI gesture recognizers
+        // On Android, we use native ScaleGestureDetector via Custom Handler
         var pinchGesture = new PinchGestureRecognizer();
         pinchGesture.PinchUpdated += OnPinchUpdated;
         GestureRecognizers.Add(pinchGesture);
@@ -59,8 +64,9 @@ public class ZoomPanCanvas : ContentView
         var panGesture = new PanGestureRecognizer();
         panGesture.PanUpdated += OnPanUpdated;
         GestureRecognizers.Add(panGesture);
+#endif
 
-        // Mouse wheel support
+        // Mouse wheel support for Windows
         this.HandlerChanged += OnHandlerChanged;
 
         // Initialize center position when size is known
