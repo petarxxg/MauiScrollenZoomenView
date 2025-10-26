@@ -111,13 +111,12 @@ public class ZoomPanCanvas : ContentView
 
         if (Math.Abs(newScale - _currentScale) > 0.001)
         {
-            var mouseX = pointerPoint.Position.X - (Width / 2);
-            var mouseY = pointerPoint.Position.Y - (Height / 2);
-            var contentX = (mouseX - _xOffset) / _currentScale;
-            var contentY = (mouseY - _yOffset) / _currentScale;
+            // Zoom auf die MITTE des Bildschirms
+            var contentX = (0 - _xOffset) / _currentScale;
+            var contentY = (0 - _yOffset) / _currentScale;
             _currentScale = newScale;
-            _xOffset = mouseX - (contentX * _currentScale);
-            _yOffset = mouseY - (contentY * _currentScale);
+            _xOffset = 0 - (contentX * _currentScale);
+            _yOffset = 0 - (contentY * _currentScale);
             _contentHost.Scale = _currentScale;
             _contentHost.TranslationX = _xOffset;
             _contentHost.TranslationY = _yOffset;
@@ -192,19 +191,18 @@ public class ZoomPanCanvas : ContentView
 
             if (Math.Abs(newScale - _currentScale) < 0.001) return;
 
-            // Zoom to pinch point (relativ zur Mitte)
-            var pinchCenterX = (e.ScaleOrigin.X * Width) - (Width / 2);
-            var pinchCenterY = (e.ScaleOrigin.Y * Height) - (Height / 2);
+            // Zoom auf die MITTE des Bildschirms (nicht auf Finger-Position!)
+            // Der Canvas ist zentriert mit Anchor 0.5, also bleibt er an seiner Position
 
-            // Berechne Content-Position vor Scaling
-            var contentX = (pinchCenterX - _xOffset) / _currentScale;
-            var contentY = (pinchCenterY - _yOffset) / _currentScale;
+            // Berechne Content-Position an der View-Mitte (0, 0 weil zentriert)
+            var contentX = (0 - _xOffset) / _currentScale;
+            var contentY = (0 - _yOffset) / _currentScale;
 
             _currentScale = newScale;
 
-            // Passe Offset an damit Pinch-Point fix bleibt
-            _xOffset = pinchCenterX - (contentX * _currentScale);
-            _yOffset = pinchCenterY - (contentY * _currentScale);
+            // Passe Offset an damit View-Mitte am gleichen Content-Punkt bleibt
+            _xOffset = 0 - (contentX * _currentScale);
+            _yOffset = 0 - (contentY * _currentScale);
 
             // Update immediately
             _contentHost.Scale = _currentScale;

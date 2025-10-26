@@ -87,6 +87,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         public override bool OnScale(ScaleGestureDetector? detector)
         {
             if (detector == null) return false;
+            if (_handler.PlatformView == null) return false;
 
             // Calculate new scale
             var scaleDelta = detector.ScaleFactor;
@@ -95,20 +96,20 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             // Clamp scale
             newScale = Math.Max(0.1f, Math.Min(3.0f, newScale));
 
-            // Get focus point (where fingers are)
-            var focusX = detector.FocusX;
-            var focusY = detector.FocusY;
+            // Zoom auf die MITTE des Bildschirms (nicht auf Finger-Position!)
+            var viewCenterX = _handler.PlatformView.Width / 2.0f;
+            var viewCenterY = _handler.PlatformView.Height / 2.0f;
 
-            // Calculate position in content coordinates before scaling
-            var contentX = (focusX - _handler._translateX) / _handler._scaleFactor;
-            var contentY = (focusY - _handler._translateY) / _handler._scaleFactor;
+            // Calculate position in content coordinates before scaling (an der View-Mitte)
+            var contentX = (viewCenterX - _handler._translateX) / _handler._scaleFactor;
+            var contentY = (viewCenterY - _handler._translateY) / _handler._scaleFactor;
 
             // Update scale
             _handler._scaleFactor = newScale;
 
-            // Adjust translation so focus point stays fixed
-            _handler._translateX = focusX - (contentX * _handler._scaleFactor);
-            _handler._translateY = focusY - (contentY * _handler._scaleFactor);
+            // Adjust translation so view center stays at same content position
+            _handler._translateX = viewCenterX - (contentX * _handler._scaleFactor);
+            _handler._translateY = viewCenterY - (contentY * _handler._scaleFactor);
 
             // Apply transformation on UI thread
             Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
