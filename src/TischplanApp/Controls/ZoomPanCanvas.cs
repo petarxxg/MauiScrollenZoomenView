@@ -9,10 +9,10 @@ namespace TischplanApp.Controls;
 /// </summary>
 public class ZoomPanCanvas : ContentView
 {
-    private const double MinScale = 0.5;
-    private const double MaxScale = 3.0;
-    private const double ZoomSensitivity = 8.0; // MASSIV erhöht für ultra-responsives Zoomen
-    private const int ThrottleMs = 8; // Minimales Throttling (125 FPS max) für Smoothness
+    private const double MinScale = 0.1;   // 10% - viel weiter rauszoomen möglich
+    private const double MaxScale = 3.0;   // 300% - maximaler Zoom
+    private const double ZoomSensitivity = 5.0; // Optimal: Responsiv ohne "Zittern"
+    private const int ThrottleMs = 16; // 60 FPS für smooth rendering
 
     private readonly Grid _rootGrid;
     private readonly ContentView _contentHost;
@@ -206,7 +206,7 @@ public class ZoomPanCanvas : ContentView
         }
         else if (e.Status == GestureStatus.Running)
         {
-            // Minimal throttling für smooth rendering ohne Überlastung
+            // 60 FPS throttling für smooth rendering ohne Zittern
             var currentTicks = DateTime.UtcNow.Ticks;
             var elapsedMs = (currentTicks - _lastUpdateTicks) / TimeSpan.TicksPerMillisecond;
             if (elapsedMs < ThrottleMs && _lastUpdateTicks > 0)
@@ -215,9 +215,9 @@ public class ZoomPanCanvas : ContentView
             }
             _lastUpdateTicks = currentTicks;
 
-            // Calculate new scale with MASSIVELY amplified sensitivity
-            var scaleDelta = e.Scale - 1.0;  // z.B. 0.1 oder -0.1
-            var amplifiedDelta = scaleDelta * ZoomSensitivity;  // 0.1 * 8.0 = 0.8 (80%!)
+            // % basiertes Zoom mit optimaler Sensitivität
+            var scaleDelta = e.Scale - 1.0;  // z.B. 0.1 (10% Finger-Bewegung)
+            var amplifiedDelta = scaleDelta * ZoomSensitivity;  // 0.1 * 5.0 = 0.5 (50% Zoom)
             var newScale = _startScale * (1.0 + amplifiedDelta);
             newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
 
@@ -257,7 +257,7 @@ public class ZoomPanCanvas : ContentView
                 break;
 
             case GestureStatus.Running:
-                // Minimal throttling für smooth rendering
+                // 60 FPS throttling für smooth rendering
                 var currentTicks = DateTime.UtcNow.Ticks;
                 var elapsedMs = (currentTicks - _lastUpdateTicks) / TimeSpan.TicksPerMillisecond;
                 if (elapsedMs < ThrottleMs && _lastUpdateTicks > 0)
