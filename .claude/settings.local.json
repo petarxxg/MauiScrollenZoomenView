@@ -14,7 +14,8 @@
       "Bash(where:*)",
       "Bash(dir:*)",
       "WebSearch",
-      "Bash(dotnet add:*)"
+      "Bash(dotnet add:*)",
+      "Bash(dotnet remove:*)"
     ],
     "deny": [],
     "ask": []
