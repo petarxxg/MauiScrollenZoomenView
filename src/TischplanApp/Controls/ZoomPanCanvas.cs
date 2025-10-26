@@ -11,6 +11,7 @@ public class ZoomPanCanvas : ContentView
 {
     private const double MinScale = 0.5;
     private const double MaxScale = 3.0;
+    private const double ZoomSensitivity = 2.5; // Höhere Werte = schnellerer Zoom
 
     private readonly Grid _rootGrid;
     private readonly ContentView _contentHost;
@@ -202,8 +203,11 @@ public class ZoomPanCanvas : ContentView
         }
         else if (e.Status == GestureStatus.Running)
         {
-            // Calculate new scale - KEINE THROTTLING für maximale Smoothness
-            var newScale = _startScale * e.Scale;
+            // Calculate new scale with amplified sensitivity
+            // e.Scale ist z.B. 1.1 (10% größer) oder 0.9 (10% kleiner)
+            var scaleDelta = e.Scale - 1.0;  // z.B. 0.1 oder -0.1
+            var amplifiedDelta = scaleDelta * ZoomSensitivity;  // z.B. 0.1 * 2.5 = 0.25
+            var newScale = _startScale * (1.0 + amplifiedDelta);  // 25% statt nur 10%
             newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
 
             // Calculate the pinch center point in screen coordinates
