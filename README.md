@@ -204,6 +204,24 @@ var zoomFactor = delta > 0 ? 1.1 : 0.9;  // 10% pro Tick
 var zoomFactor = delta > 0 ? 1.2 : 0.8;  // 20% pro Tick
 ```
 
+### Performance-Tuning (Frame-Throttling)
+
+```csharp
+// In ZoomPanCanvas.cs
+private const int UpdateThrottleMs = 16;  // Standard: ~60 FPS
+
+// Für ältere Geräte (langsamer, aber weniger Lag):
+private const int UpdateThrottleMs = 33;  // ~30 FPS
+
+// Für sehr neue Geräte (schneller, aber mehr CPU-Last):
+private const int UpdateThrottleMs = 8;   // ~120 FPS
+
+// Throttling komplett deaktivieren (nicht empfohlen):
+private const int UpdateThrottleMs = 0;   // Kein Throttling
+```
+
+**Wichtig**: Bei Lag → Wert **erhöhen** (z.B. 33ms). Bei zu langsamer Reaktion → Wert **verringern** (z.B. 8ms).
+
 ### Hintergrundfarbe ändern
 
 ```csharp
@@ -385,8 +403,10 @@ Verbesserungen und Bug-Fixes sind willkommen! Erstellen Sie einfach einen Pull R
 #### ✅ Optimierungen die bereits implementiert sind:
 
 - **Hardware-Beschleunigung**: `IsClippedToBounds = false` aktiviert GPU-Rendering
-- **Batch-Updates**: Transformationen werden gebündelt für bessere Performance
-- **Kein Threshold**: Alle Pinch-Gesten werden sofort verarbeitet (kein Ruckeln)
+- **Android Hardware-Layer**: Während Gesten wird `LayerType.Hardware` aktiviert für GPU-cached Rendering
+- **Frame-Throttling (16ms)**: Updates auf max. 60 FPS begrenzt - verhindert Overload bei schnellen Gesten
+- **Direkte Property-Updates**: Keine Batch-Operationen die Lag verursachen könnten
+- **Pan & Zoom Throttling**: Beide Gesten-Typen profitieren von Performance-Optimierungen
 
 #### 📱 Wichtig für Android (Smooth Zoom):
 
