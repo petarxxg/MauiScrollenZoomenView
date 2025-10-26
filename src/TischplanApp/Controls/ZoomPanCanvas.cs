@@ -11,7 +11,8 @@ public class ZoomPanCanvas : ContentView
 {
     private const double MinScale = 0.1;   // 10% - viel weiter rauszoomen möglich
     private const double MaxScale = 3.0;   // 300% - maximaler Zoom
-    private const double ZoomSensitivity = 5.0; // Optimal: Responsiv ohne "Zittern"
+    private const double ZoomSensitivity = 2.0; // Reduziert für Stabilität
+    private const int ThrottleMs = 33; // 30 FPS - stabil ohne Zittern
 
     private readonly Grid _rootGrid;
     private readonly ContentView _contentHost;
@@ -21,6 +22,7 @@ public class ZoomPanCanvas : ContentView
     private double _startScale = 1.0;
     private double _xOffset = 0.0;
     private double _yOffset = 0.0;
+    private long _lastUpdateTicks = 0;
 
     public ZoomPanCanvas()
     {
@@ -33,14 +35,13 @@ public class ZoomPanCanvas : ContentView
         };
 
         // Content host that will be scaled and translated
-        // AnchorX/Y = 0.5 bedeutet: Zoom von Mitte aus (keine Position-Verschiebung)
         _contentHost = new ContentView
         {
             Content = _canvas,
-            AnchorX = 0.5,
-            AnchorY = 0.5,
-            HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions = LayoutOptions.Center
+            AnchorX = 0,
+            AnchorY = 0,
+            HorizontalOptions = LayoutOptions.Start,
+            VerticalOptions = LayoutOptions.Start
         };
 
         // Root grid with clipping
@@ -201,11 +202,20 @@ public class ZoomPanCanvas : ContentView
         if (e.Status == GestureStatus.Started)
         {
             _startScale = _currentScale;
+            _lastUpdateTicks = 0;
         }
         else if (e.Status == GestureStatus.Running)
         {
-            // ULTRA-SIMPEL: Nur Scale ändern, KEINE Offset-Anpassung
-            // % basiertes Zoom mit Sensitivität
+            // 30 FPS Throttling für Stabilität (verhindert Zittern)
+            var currentTicks = DateTime.UtcNow.Ticks;
+            var elapsedMs = (currentTicks - _lastUpdateTicks) / TimeSpan.TicksPerMillisecond;
+            if (elapsedMs < ThrottleMs && _lastUpdateTicks > 0)
+            {
+                return;
+            }
+            _lastUpdateTicks = currentTicks;
+
+            // % basiertes Zoom mit reduzierter Sensitivität (2.0)
             var scaleDelta = e.Scale - 1.0;
             var amplifiedDelta = scaleDelta * ZoomSensitivity;
             var newScale = _startScale * (1.0 + amplifiedDelta);
@@ -213,7 +223,7 @@ public class ZoomPanCanvas : ContentView
 
             _currentScale = newScale;
 
-            // Nur Scale ändern - Anchor 0.5/0.5 sorgt für zentriertes Zoomen
+            // Nur Scale ändern - keine Translation-Änderungen
             _contentHost.Scale = _currentScale;
         }
     }
@@ -228,9 +238,19 @@ public class ZoomPanCanvas : ContentView
             case GestureStatus.Started:
                 _lastPanX = 0;
                 _lastPanY = 0;
+                _lastUpdateTicks = 0;
                 break;
 
             case GestureStatus.Running:
+                // 30 FPS Throttling für Stabilität
+                var currentTicks = DateTime.UtcNow.Ticks;
+                var elapsedMs = (currentTicks - _lastUpdateTicks) / TimeSpan.TicksPerMillisecond;
+                if (elapsedMs < ThrottleMs && _lastUpdateTicks > 0)
+                {
+                    return;
+                }
+                _lastUpdateTicks = currentTicks;
+
                 var deltaX = e.TotalX - _lastPanX;
                 var deltaY = e.TotalY - _lastPanY;
 
@@ -240,7 +260,6 @@ public class ZoomPanCanvas : ContentView
                 _lastPanX = e.TotalX;
                 _lastPanY = e.TotalY;
 
-                // Direct update - kein Throttling
                 _contentHost.TranslationX = _xOffset;
                 _contentHost.TranslationY = _yOffset;
                 break;
