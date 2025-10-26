@@ -21,10 +21,6 @@ public class ZoomPanCanvas : ContentView
     private double _xOffset = 0.0;
     private double _yOffset = 0.0;
 
-    // Performance optimization: throttle updates
-    private DateTime _lastUpdateTime = DateTime.MinValue;
-    private const int UpdateThrottleMs = 16; // ~60 FPS max
-
     public ZoomPanCanvas()
     {
         // Create the canvas with fixed size
@@ -124,7 +120,10 @@ public class ZoomPanCanvas : ContentView
             _xOffset = mouseX - (contentX * _currentScale);
             _yOffset = mouseY - (contentY * _currentScale);
 
-            ApplyTransformation();
+            // Direct update - no batching, no throttling
+            _contentHost.Scale = _currentScale;
+            _contentHost.TranslationX = _xOffset;
+            _contentHost.TranslationY = _yOffset;
         }
 
         e.Handled = true;
@@ -200,20 +199,10 @@ public class ZoomPanCanvas : ContentView
         if (e.Status == GestureStatus.Started)
         {
             _startScale = _currentScale;
-            _lastUpdateTime = DateTime.MinValue; // Reset throttle
-            SetHardwareLayer(true); // Enable hardware layer for performance
         }
         else if (e.Status == GestureStatus.Running)
         {
-            // Throttle updates for better performance
-            var now = DateTime.UtcNow;
-            if ((now - _lastUpdateTime).TotalMilliseconds < UpdateThrottleMs)
-            {
-                return; // Skip this frame
-            }
-            _lastUpdateTime = now;
-
-            // Calculate new scale
+            // Calculate new scale - KEINE THROTTLING für maximale Smoothness
             var newScale = _startScale * e.Scale;
             newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
 
@@ -232,11 +221,10 @@ public class ZoomPanCanvas : ContentView
             _xOffset = pinchCenterX - (contentX * _currentScale);
             _yOffset = pinchCenterY - (contentY * _currentScale);
 
-            ApplyTransformation();
-        }
-        else if (e.Status == GestureStatus.Completed || e.Status == GestureStatus.Canceled)
-        {
-            SetHardwareLayer(false); // Disable hardware layer after gesture
+            // Direct update - no batching, no throttling
+            _contentHost.Scale = _currentScale;
+            _contentHost.TranslationX = _xOffset;
+            _contentHost.TranslationY = _yOffset;
         }
     }
 
@@ -250,19 +238,9 @@ public class ZoomPanCanvas : ContentView
             case GestureStatus.Started:
                 _lastPanX = 0;
                 _lastPanY = 0;
-                _lastUpdateTime = DateTime.MinValue;
-                SetHardwareLayer(true);
                 break;
 
             case GestureStatus.Running:
-                // Throttle updates for better performance
-                var now = DateTime.UtcNow;
-                if ((now - _lastUpdateTime).TotalMilliseconds < UpdateThrottleMs)
-                {
-                    return; // Skip this frame
-                }
-                _lastUpdateTime = now;
-
                 var deltaX = e.TotalX - _lastPanX;
                 var deltaY = e.TotalY - _lastPanY;
 
@@ -272,42 +250,17 @@ public class ZoomPanCanvas : ContentView
                 _lastPanX = e.TotalX;
                 _lastPanY = e.TotalY;
 
-                ApplyTransformation();
+                // Direct update - no batching, no throttling
+                _contentHost.TranslationX = _xOffset;
+                _contentHost.TranslationY = _yOffset;
                 break;
 
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
                 _lastPanX = 0;
                 _lastPanY = 0;
-                SetHardwareLayer(false);
                 break;
         }
-    }
-
-    /// <summary>
-    /// Applies the current scale and translation to the content host.
-    /// </summary>
-    private void ApplyTransformation()
-    {
-        // Direct property updates - batching can cause lag
-        _contentHost.Scale = _currentScale;
-        _contentHost.TranslationX = _xOffset;
-        _contentHost.TranslationY = _yOffset;
-    }
-
-    /// <summary>
-    /// Sets hardware layer for better performance during gestures (Android only).
-    /// </summary>
-    private void SetHardwareLayer(bool enable)
-    {
-#if ANDROID
-        if (this.Handler?.PlatformView is Android.Views.View androidView)
-        {
-            androidView.SetLayerType(
-                enable ? Android.Views.LayerType.Hardware : Android.Views.LayerType.None,
-                null);
-        }
-#endif
     }
 
     /// <summary>
@@ -319,6 +272,9 @@ public class ZoomPanCanvas : ContentView
         _startScale = 1.0;
         _xOffset = 0.0;
         _yOffset = 0.0;
-        ApplyTransformation();
+
+        _contentHost.Scale = 1.0;
+        _contentHost.TranslationX = 0.0;
+        _contentHost.TranslationY = 0.0;
     }
 }
