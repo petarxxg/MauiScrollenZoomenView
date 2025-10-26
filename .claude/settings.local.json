@@ -12,7 +12,9 @@
       "Bash(git commit:*)",
       "Bash(dotnet publish:*)",
       "Bash(where:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "WebSearch",
+      "Bash(dotnet add:*)"
     ],
     "deny": [],
     "ask": []

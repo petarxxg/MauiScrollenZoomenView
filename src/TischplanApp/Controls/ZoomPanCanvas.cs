@@ -1,24 +1,23 @@
 using Microsoft.Maui.Controls.Shapes;
 using TischplanApp.Models;
+using MRGestures = MR.Gestures;
 
 namespace TischplanApp.Controls;
 
 /// <summary>
 /// A custom control that provides zoom and pan functionality for a canvas with table elements.
-/// Uses PinchGestureRecognizer for zooming and PanGestureRecognizer for panning.
+/// Uses MR.Gestures for smooth, professional zoom and pan on Android, iOS and Windows.
 /// </summary>
-public class ZoomPanCanvas : ContentView
+public class ZoomPanCanvas : Microsoft.Maui.Controls.ContentView
 {
     private const double MinScale = 0.1;   // 10% - viel weiter rauszoomen möglich
     private const double MaxScale = 3.0;   // 300% - maximaler Zoom
-    private const double ZoomSensitivity = 1.5; // Wie Google Maps
 
     private readonly Grid _rootGrid;
-    private readonly ContentView _contentHost;
+    private readonly MRGestures.ContentView _contentHost;
     private readonly AbsoluteLayout _canvas;
 
     private double _currentScale = 1.0;
-    private double _startScale = 1.0;
     private double _xOffset = 0.0;
     private double _yOffset = 0.0;
 
@@ -32,12 +31,10 @@ public class ZoomPanCanvas : ContentView
             BackgroundColor = Colors.White
         };
 
-        // Content host that will be scaled and translated
-        _contentHost = new ContentView
+        // MR.Gestures ContentView - supports smooth gestures
+        _contentHost = new MRGestures.ContentView
         {
             Content = _canvas,
-            AnchorX = 0,
-            AnchorY = 0,
             HorizontalOptions = LayoutOptions.Start,
             VerticalOptions = LayoutOptions.Start
         };
@@ -51,24 +48,13 @@ public class ZoomPanCanvas : ContentView
 
         Content = _rootGrid;
 
-        // Enable hardware acceleration for better performance
-        _contentHost.IsClippedToBounds = false;
-
-        // Add gesture recognizers
-        var pinchGesture = new PinchGestureRecognizer();
-        pinchGesture.PinchUpdated += OnPinchUpdated;
-        GestureRecognizers.Add(pinchGesture);
-
-        var panGesture = new PanGestureRecognizer();
-        panGesture.PanUpdated += OnPanUpdated;
-        GestureRecognizers.Add(panGesture);
+        // Setup MR.Gestures events
+        _contentHost.Pinching += OnPinching;
+        _contentHost.Panning += OnPanning;
 
         // Add mouse wheel support for desktop platforms
         this.HandlerChanged += OnHandlerChanged;
     }
-
-    private double _lastPanX = 0;
-    private double _lastPanY = 0;
 
     /// <summary>
     /// Handles the handler changed event to set up platform-specific mouse wheel support.
@@ -121,7 +107,7 @@ public class ZoomPanCanvas : ContentView
             _xOffset = mouseX - (contentX * _currentScale);
             _yOffset = mouseY - (contentY * _currentScale);
 
-            // Direct update - no batching, no throttling
+            // Apply transformations
             _contentHost.Scale = _currentScale;
             _contentHost.TranslationX = _xOffset;
             _contentHost.TranslationY = _yOffset;
@@ -149,7 +135,7 @@ public class ZoomPanCanvas : ContentView
     /// <summary>
     /// Creates a visual representation of a table.
     /// </summary>
-    private ContentView CreateTableView(TableModel table)
+    private Microsoft.Maui.Controls.ContentView CreateTableView(TableModel table)
     {
         var border = new Border
         {
@@ -168,10 +154,9 @@ public class ZoomPanCanvas : ContentView
             }
         };
 
-        var tableView = new ContentView
+        var tableView = new Microsoft.Maui.Controls.ContentView
         {
             Content = border,
-            // Enable hardware acceleration for smoother rendering
             IsClippedToBounds = false
         };
 
@@ -193,78 +178,51 @@ public class ZoomPanCanvas : ContentView
     }
 
     /// <summary>
-    /// Handles pinch gesture for zooming.
+    /// Handles pinch gesture for zooming using MR.Gestures.
     /// </summary>
-    private void OnPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e)
+    private void OnPinching(object? sender, MRGestures.PinchEventArgs e)
     {
-        if (e.Status == GestureStatus.Started)
-        {
-            _startScale = _currentScale;
-        }
-        else if (e.Status == GestureStatus.Running)
-        {
-            // Google Maps style: Zoom mit Sensitivität 1.5, KEIN Throttling
-            var scaleDelta = e.Scale - 1.0;
-            var amplifiedDelta = scaleDelta * ZoomSensitivity;
-            var newScale = _startScale * (1.0 + amplifiedDelta);
-            newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
+        if (e.DeltaScale == 0) return;
 
-            // Berechne Pinch-Center für "zoom to point"
-            var pinchCenterX = e.ScaleOrigin.X * Width;
-            var pinchCenterY = e.ScaleOrigin.Y * Height;
+        // Calculate new scale based on cumulative scale
+        var newScale = _currentScale * e.DeltaScale;
+        newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
 
-            // Berechne Content-Position vor Scaling
-            var contentX = (pinchCenterX - _xOffset) / _currentScale;
-            var contentY = (pinchCenterY - _yOffset) / _currentScale;
+        if (Math.Abs(newScale - _currentScale) < 0.001) return;
 
-            // Update Scale
-            _currentScale = newScale;
+        // Get pinch center in screen coordinates
+        var pinchCenterX = e.Center.X;
+        var pinchCenterY = e.Center.Y;
 
-            // Passe Offset an damit Pinch-Point fix bleibt
-            _xOffset = pinchCenterX - (contentX * _currentScale);
-            _yOffset = pinchCenterY - (contentY * _currentScale);
+        // Calculate content position before scaling
+        var contentX = (pinchCenterX - _xOffset) / _currentScale;
+        var contentY = (pinchCenterY - _yOffset) / _currentScale;
 
-            // Update sofort - kein Throttling!
-            _contentHost.Scale = _currentScale;
-            _contentHost.TranslationX = _xOffset;
-            _contentHost.TranslationY = _yOffset;
-        }
+        // Update scale
+        _currentScale = newScale;
+
+        // Adjust offset so pinch point stays fixed
+        _xOffset = pinchCenterX - (contentX * _currentScale);
+        _yOffset = pinchCenterY - (contentY * _currentScale);
+
+        // Apply transformations
+        _contentHost.Scale = _currentScale;
+        _contentHost.TranslationX = _xOffset;
+        _contentHost.TranslationY = _yOffset;
     }
 
     /// <summary>
-    /// Handles pan gesture for panning.
+    /// Handles pan gesture for panning using MR.Gestures.
     /// </summary>
-    private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
+    private void OnPanning(object? sender, MRGestures.PanEventArgs e)
     {
-        switch (e.StatusType)
-        {
-            case GestureStatus.Started:
-                _lastPanX = 0;
-                _lastPanY = 0;
-                break;
+        // MR.Gestures provides delta values directly
+        _xOffset += e.DeltaDistance.X;
+        _yOffset += e.DeltaDistance.Y;
 
-            case GestureStatus.Running:
-                // Google Maps style: KEIN Throttling, maximale Responsivität
-                var deltaX = e.TotalX - _lastPanX;
-                var deltaY = e.TotalY - _lastPanY;
-
-                _xOffset += deltaX;
-                _yOffset += deltaY;
-
-                _lastPanX = e.TotalX;
-                _lastPanY = e.TotalY;
-
-                // Update sofort - kein Throttling!
-                _contentHost.TranslationX = _xOffset;
-                _contentHost.TranslationY = _yOffset;
-                break;
-
-            case GestureStatus.Completed:
-            case GestureStatus.Canceled:
-                _lastPanX = 0;
-                _lastPanY = 0;
-                break;
-        }
+        // Apply translation
+        _contentHost.TranslationX = _xOffset;
+        _contentHost.TranslationY = _yOffset;
     }
 
     /// <summary>
@@ -273,7 +231,6 @@ public class ZoomPanCanvas : ContentView
     public void ResetZoomPan()
     {
         _currentScale = 1.0;
-        _startScale = 1.0;
         _xOffset = 0.0;
         _yOffset = 0.0;
 
