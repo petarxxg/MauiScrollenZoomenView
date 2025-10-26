@@ -11,7 +11,8 @@ public class ZoomPanCanvas : ContentView
 {
     private const double MinScale = 0.5;
     private const double MaxScale = 3.0;
-    private const double ZoomSensitivity = 2.5; // Höhere Werte = schnellerer Zoom
+    private const double ZoomSensitivity = 8.0; // MASSIV erhöht für ultra-responsives Zoomen
+    private const int ThrottleMs = 8; // Minimales Throttling (125 FPS max) für Smoothness
 
     private readonly Grid _rootGrid;
     private readonly ContentView _contentHost;
@@ -21,6 +22,7 @@ public class ZoomPanCanvas : ContentView
     private double _startScale = 1.0;
     private double _xOffset = 0.0;
     private double _yOffset = 0.0;
+    private long _lastUpdateTicks = 0;
 
     public ZoomPanCanvas()
     {
@@ -200,14 +202,23 @@ public class ZoomPanCanvas : ContentView
         if (e.Status == GestureStatus.Started)
         {
             _startScale = _currentScale;
+            _lastUpdateTicks = 0; // Reset throttle
         }
         else if (e.Status == GestureStatus.Running)
         {
-            // Calculate new scale with amplified sensitivity
-            // e.Scale ist z.B. 1.1 (10% größer) oder 0.9 (10% kleiner)
+            // Minimal throttling für smooth rendering ohne Überlastung
+            var currentTicks = DateTime.UtcNow.Ticks;
+            var elapsedMs = (currentTicks - _lastUpdateTicks) / TimeSpan.TicksPerMillisecond;
+            if (elapsedMs < ThrottleMs && _lastUpdateTicks > 0)
+            {
+                return; // Skip this frame
+            }
+            _lastUpdateTicks = currentTicks;
+
+            // Calculate new scale with MASSIVELY amplified sensitivity
             var scaleDelta = e.Scale - 1.0;  // z.B. 0.1 oder -0.1
-            var amplifiedDelta = scaleDelta * ZoomSensitivity;  // z.B. 0.1 * 2.5 = 0.25
-            var newScale = _startScale * (1.0 + amplifiedDelta);  // 25% statt nur 10%
+            var amplifiedDelta = scaleDelta * ZoomSensitivity;  // 0.1 * 8.0 = 0.8 (80%!)
+            var newScale = _startScale * (1.0 + amplifiedDelta);
             newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
 
             // Calculate the pinch center point in screen coordinates
@@ -242,9 +253,19 @@ public class ZoomPanCanvas : ContentView
             case GestureStatus.Started:
                 _lastPanX = 0;
                 _lastPanY = 0;
+                _lastUpdateTicks = 0; // Reset throttle
                 break;
 
             case GestureStatus.Running:
+                // Minimal throttling für smooth rendering
+                var currentTicks = DateTime.UtcNow.Ticks;
+                var elapsedMs = (currentTicks - _lastUpdateTicks) / TimeSpan.TicksPerMillisecond;
+                if (elapsedMs < ThrottleMs && _lastUpdateTicks > 0)
+                {
+                    return; // Skip this frame
+                }
+                _lastUpdateTicks = currentTicks;
+
                 var deltaX = e.TotalX - _lastPanX;
                 var deltaY = e.TotalY - _lastPanY;
 
@@ -254,7 +275,7 @@ public class ZoomPanCanvas : ContentView
                 _lastPanX = e.TotalX;
                 _lastPanY = e.TotalY;
 
-                // Direct update - no batching, no throttling
+                // Direct update
                 _contentHost.TranslationX = _xOffset;
                 _contentHost.TranslationY = _yOffset;
                 break;
