@@ -380,11 +380,68 @@ Verbesserungen und Bug-Fixes sind willkommen! Erstellen Sie einfach einen Pull R
 
 ## 💡 Tipps & Best Practices
 
-### Performance
+### Performance - Für flüssiges Zoomen & Panning
+
+#### ✅ Optimierungen die bereits implementiert sind:
+
+- **Hardware-Beschleunigung**: `IsClippedToBounds = false` aktiviert GPU-Rendering
+- **Batch-Updates**: Transformationen werden gebündelt für bessere Performance
+- **Kein Threshold**: Alle Pinch-Gesten werden sofort verarbeitet (kein Ruckeln)
+
+#### 📱 Wichtig für Android (Smooth Zoom):
+
+**1. AndroidManifest.xml - Hardware-Beschleunigung aktivieren:**
+```xml
+<application android:hardwareAccelerated="true">
+```
+Dies ist **bereits aktiviert** in der Demo-App.
+
+**2. Anzahl der Elemente begrenzen:**
+- ✅ **Optimal**: 10-50 Elemente → butter-smooth
+- ⚠️ **Akzeptabel**: 50-200 Elemente → noch flüssig
+- ❌ **Problematisch**: 200+ Elemente → Lazy Loading nutzen!
+
+**3. Einfache View-Strukturen verwenden:**
+```csharp
+// ✅ GUT: Einfache Border + Label
+var border = new Border
+{
+    Content = new Label { Text = "Tisch 1" }
+};
+
+// ❌ LANGSAM: Verschachtelte Layouts vermeiden
+var grid = new Grid
+{
+    Children = {
+        new StackLayout {
+            Children = { new Image(), new Label() }
+        }
+    }
+};
+```
+
+**4. Bilder optimieren:**
+- Verwenden Sie **komprimierte PNG/JPG** (nicht riesige Dateien)
+- Skalieren Sie Bilder auf die **tatsächlich benötigte Größe**
+- Vermeiden Sie transparente PNGs wenn möglich
+
+**5. Debug-Modus vs. Release-Modus:**
+- ⚠️ **Debug-APKs sind DEUTLICH langsamer** (2-3x)
+- ✅ **Testen Sie Performance immer mit Release-Build:**
+```bash
+dotnet publish -f net9.0-android -c Release -p:AndroidPackageFormat=apk
+```
+
+**6. Android-Geräte:**
+- **Moderne Geräte** (ab 2020): Kein Problem mit 100+ Elementen
+- **Ältere Geräte** (vor 2018): Begrenzen Sie auf max. 50 Elemente
+
+#### 🚀 Weitere Performance-Tipps:
 
 - **Lazy Loading**: Laden Sie nur sichtbare Elemente bei sehr großen Datasets
 - **Virtualisierung**: Für 1000+ Elemente erwägen Sie Virtualisierung
-- **Bild-Optimierung**: Nutzen Sie komprimierte Bilder für Hintergründe
+- **Canvas-Größe**: Machen Sie die Canvas nicht größer als nötig
+- **Schatten vermeiden**: Shadows sind teuer auf mobilen Geräten
 
 ### UX
 

@@ -50,6 +50,9 @@ public class ZoomPanCanvas : ContentView
 
         Content = _rootGrid;
 
+        // Enable hardware acceleration for better performance
+        _contentHost.IsClippedToBounds = false;
+
         // Add gesture recognizers
         var pinchGesture = new PinchGestureRecognizer();
         pinchGesture.PinchUpdated += OnPinchUpdated;
@@ -163,7 +166,9 @@ public class ZoomPanCanvas : ContentView
 
         var tableView = new ContentView
         {
-            Content = border
+            Content = border,
+            // Enable hardware acceleration for smoother rendering
+            IsClippedToBounds = false
         };
 
         // Add tap gesture
@@ -198,25 +203,22 @@ public class ZoomPanCanvas : ContentView
             var newScale = _startScale * e.Scale;
             newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
 
-            if (Math.Abs(newScale - _currentScale) > 0.001)
-            {
-                // Calculate the pinch center point in screen coordinates
-                var pinchCenterX = e.ScaleOrigin.X * Width;
-                var pinchCenterY = e.ScaleOrigin.Y * Height;
+            // Calculate the pinch center point in screen coordinates
+            var pinchCenterX = e.ScaleOrigin.X * Width;
+            var pinchCenterY = e.ScaleOrigin.Y * Height;
 
-                // Calculate the point in content coordinates before scaling
-                var contentX = (pinchCenterX - _xOffset) / _currentScale;
-                var contentY = (pinchCenterY - _yOffset) / _currentScale;
+            // Calculate the point in content coordinates before scaling
+            var contentX = (pinchCenterX - _xOffset) / _currentScale;
+            var contentY = (pinchCenterY - _yOffset) / _currentScale;
 
-                // Update scale
-                _currentScale = newScale;
+            // Update scale
+            _currentScale = newScale;
 
-                // Adjust offset so the pinch center remains at the same screen position
-                _xOffset = pinchCenterX - (contentX * _currentScale);
-                _yOffset = pinchCenterY - (contentY * _currentScale);
+            // Adjust offset so the pinch center remains at the same screen position
+            _xOffset = pinchCenterX - (contentX * _currentScale);
+            _yOffset = pinchCenterY - (contentY * _currentScale);
 
-                ApplyTransformation();
-            }
+            ApplyTransformation();
         }
     }
 
@@ -258,9 +260,12 @@ public class ZoomPanCanvas : ContentView
     /// </summary>
     private void ApplyTransformation()
     {
+        // Batch updates for better performance
+        _contentHost.BatchBegin();
         _contentHost.Scale = _currentScale;
         _contentHost.TranslationX = _xOffset;
         _contentHost.TranslationY = _yOffset;
+        _contentHost.BatchCommit();
     }
 
     /// <summary>
