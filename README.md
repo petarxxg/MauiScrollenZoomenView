@@ -1,268 +1,277 @@
-# MAUI ZoomPanCanvas - Zoom & Pan View für .NET MAUI
+# MAUI ZoomPanCanvas - Production-Ready Zoom & Pan für .NET MAUI
 
-Eine produktionsreife, vollständig funktionale Zoom & Pan Canvas-Komponente für .NET MAUI Apps (Android, iOS, Windows).
+Eine **produktionsreife, buttery-smooth** Zoom & Pan Canvas-Komponente für .NET MAUI Apps mit **nativen Gesture Handlers** für Android und iOS.
 
 ## 🎯 Überblick
 
-Diese Komponente ermöglicht es, **beliebige Inhalte in Ihrer bestehenden MAUI App** mit Zoom- und Pan-Funktionalität auszustatten. Perfekt für:
-- Tischpläne / Sitzpläne
-- Lagepläne / Grundrisse
-- Interaktive Karten
-- Bildergalerien mit Zoom
-- Technische Zeichnungen
-- Jede Art von skalierbarer Ansicht
+Diese Komponente ermöglicht es, **beliebige Inhalte in Ihrer bestehenden MAUI App** mit Google-Maps-ähnlicher Zoom- und Pan-Funktionalität auszustatten. Perfekt für:
+- 🪑 Tischpläne / Sitzpläne / Raumpläne
+- 🗺️ Lagepläne / Grundrisse / Karten
+- 🖼️ Bildergalerien mit Zoom
+- 📐 Technische Zeichnungen / CAD-Ansichten
+- 📊 Jede Art von skalierbarer Ansicht
 
 ## ✨ Features
 
-- ✅ **Touch-Gestures**: Pinch-to-Zoom und Pan auf mobilen Geräten
-- ✅ **Mausrad-Zoom**: Volle Desktop-Unterstützung (Windows) mit Mausrad
-- ✅ **Zoom-Fokus auf Cursor**: Zoom zentriert sich auf Maus-/Touch-Position
-- ✅ **Konfigurierbare Grenzen**: Min/Max Zoom-Levels einstellbar
+- ✅ **Native Gesture Recognizers**: Direkte Nutzung von Android ScaleGestureDetector und iOS UIPinchGestureRecognizer
+- ✅ **Buttery-Smooth Performance**: Keine MAUI-Zwischenschicht, direkt Hardware-beschleunigt
+- ✅ **Proportionale Skalierung**: Was du siehst wird größer/kleiner OHNE Verschiebung
+- ✅ **Touch-Gestures**: Pinch-to-Zoom und Pan auf Android & iOS
+- ✅ **Mausrad-Zoom**: Volle Desktop-Unterstützung (Windows)
+- ✅ **Konfigurierbare Grenzen**: Min/Max Zoom-Levels einstellbar (Standard: 0.1x - 3.0x)
 - ✅ **Freies Panning**: Scrollen über sichtbare Grenzen hinaus
-- ✅ **Keine Zurücksprünge**: Position bleibt nach Gesteneende erhalten
 - ✅ **Hit-Testing funktioniert**: Tap-Gesten auf Elemente auch bei Zoom/Pan
-- ✅ **Reine MAUI**: Keine externen Dependencies (SkiaSharp, etc.)
+- ✅ **Reine MAUI**: Keine externen Dependencies
 - ✅ **Cross-Platform**: Android, iOS, Windows
 
 ## 🚀 Integration in Ihre bestehende App
 
 ### Schritt 1: Dateien kopieren
 
-Kopieren Sie folgende Dateien in Ihr bestehendes MAUI-Projekt:
+Kopieren Sie folgende Dateien in Ihr MAUI-Projekt:
 
 ```
 YourApp/
 ├── Controls/
-│   └── ZoomPanCanvas.cs          ← Diese Datei kopieren
-└── Models/
-    └── TableModel.cs             ← Optional: Nur für Beispiel-Daten
+│   └── ZoomPanCanvas.cs                              ← PFLICHT
+├── Models/
+│   └── TableModel.cs                                 ← Optional (nur für Demo)
+└── Platforms/
+    ├── Android/
+    │   └── Handlers/
+    │       └── ZoomPanCanvasHandler.cs               ← PFLICHT für Android
+    └── iOS/
+        └── Handlers/
+            └── ZoomPanCanvasHandler.cs               ← PFLICHT für iOS
 ```
 
-**Wichtig**: Passen Sie die Namespaces in den kopierten Dateien an Ihre App an:
+**Namespace anpassen:**
 
 ```csharp
-// In ZoomPanCanvas.cs
-namespace IhreApp.Controls;  // ← Ihr Namespace
-
-// In TableModel.cs
-namespace IhreApp.Models;    // ← Ihr Namespace
+// In allen kopierten Dateien:
+namespace IhreApp.Controls;    // ← Ihr App-Namespace
+namespace IhreApp.Models;      // ← Ihr App-Namespace
+namespace IhreApp.Platforms.Android.Handlers;  // ← Ihr App-Namespace
+namespace IhreApp.Platforms.iOS.Handlers;      // ← Ihr App-Namespace
 ```
 
-### Schritt 2: XAML-Integration
+### Schritt 2: Handler registrieren (WICHTIG!)
 
-Ersetzen Sie Ihre bestehende View durch die ZoomPanCanvas:
+In `MauiProgram.cs`:
 
-**Vorher (Ihre alte View):**
-```xml
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             x:Class="IhreApp.TischplanPage">
+```csharp
+using Microsoft.Extensions.Logging;
+using IhreApp.Controls;  // ← Ihr Namespace
 
-    <AbsoluteLayout x:Name="TischplanLayout">
-        <!-- Ihre Tische hier -->
-    </AbsoluteLayout>
+public static class MauiProgram
+{
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder();
 
-</ContentPage>
+        builder
+            .UseMauiApp<App>()
+            .ConfigureFonts(fonts => { /* ... */ })
+            // ↓↓↓ DIESE ZEILEN HINZUFÜGEN ↓↓↓
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if ANDROID
+                handlers.AddHandler<ZoomPanCanvas, Platforms.Android.Handlers.ZoomPanCanvasHandler>();
+#elif IOS
+                handlers.AddHandler<ZoomPanCanvas, Platforms.iOS.Handlers.ZoomPanCanvasHandler>();
+#endif
+            });
+            // ↑↑↑ BIS HIER ↑↑↑
+
+        return builder.Build();
+    }
+}
 ```
 
-**Nachher (Mit ZoomPanCanvas):**
+**⚠️ Ohne diese Registrierung funktioniert die native Gesture-Erkennung nicht!**
+
+### Schritt 3: XAML-Integration
+
+**In Ihrer Page:**
+
 ```xml
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:controls="clr-namespace:IhreApp.Controls"
-             x:Class="IhreApp.TischplanPage">
+             x:Class="IhreApp.YourPage">
 
-    <!-- Ihre bestehenden Inhalte kommen IN die ZoomPanCanvas -->
     <controls:ZoomPanCanvas x:Name="ZoomPanCanvas" />
 
 </ContentPage>
 ```
 
-### Schritt 3: Code-Behind anpassen
+### Schritt 4: Inhalte laden
 
-**Variante A: Sie haben bereits Tisch-Daten (z.B. aus Datenbank)**
+**Variante A: Mit TableModel (Demo-Daten):**
 
 ```csharp
 using IhreApp.Controls;
 using IhreApp.Models;
 
-namespace IhreApp;
-
-public partial class TischplanPage : ContentPage
+public partial class YourPage : ContentPage
 {
-    public TischplanPage()
+    public YourPage()
     {
         InitializeComponent();
-        LoadIhreTische();
+        LoadTables();
     }
 
-    private void LoadIhreTische()
+    private void LoadTables()
     {
-        // Ihre bestehenden Tisch-Daten laden
-        var tische = await DatenbankService.HoleTische();
-
-        // In TableModel-Format konvertieren
-        var tableModels = tische.Select(t => new TableModel
+        var tables = new List<TableModel>
         {
-            Id = t.Id,
-            Name = t.Name,
-            X = t.XPosition,
-            Y = t.YPosition,
-            Width = t.Breite,
-            Height = t.Hoehe
-        }).ToList();
+            new TableModel { Id = 1, Name = "Tisch 1", X = 300, Y = 200, Width = 140, Height = 90 },
+            new TableModel { Id = 2, Name = "Tisch 2", X = 600, Y = 200, Width = 140, Height = 90 },
+            new TableModel { Id = 3, Name = "Tisch 3", X = 900, Y = 200, Width = 140, Height = 90 }
+        };
 
-        // In ZoomPanCanvas laden
-        ZoomPanCanvas.LoadTables(tableModels);
+        ZoomPanCanvas.LoadTables(tables);
     }
 }
 ```
 
-**Variante B: Sie haben bereits visuelle Elemente (Views)**
-
-Wenn Sie schon `ContentView`-Elemente für Ihre Tische haben:
+**Variante B: Eigene Views hinzufügen:**
 
 ```csharp
-public void LoadIhreExistierendenViews()
-{
-    // Zugriff auf das interne AbsoluteLayout der ZoomPanCanvas
-    var canvas = ZoomPanCanvas.GetCanvas(); // ← Methode hinzufügen (siehe unten)
-
-    foreach (var tisch in IhreBestehendenTischViews)
-    {
-        AbsoluteLayout.SetLayoutBounds(tisch, new Rect(x, y, width, height));
-        canvas.Children.Add(tisch);
-    }
-}
-```
-
-**Dafür müssen Sie in `ZoomPanCanvas.cs` eine öffentliche Methode hinzufügen:**
-
-```csharp
-// In ZoomPanCanvas.cs
+// Zugriff auf das AbsoluteLayout im Canvas
 public AbsoluteLayout GetCanvas()
 {
-    return _canvas;
+    // Diese Methode in ZoomPanCanvas.cs hinzufügen:
+    public AbsoluteLayout Canvas => _canvas;
 }
+
+// Dann in Ihrer Page:
+var canvas = ZoomPanCanvas.Canvas;
+var myView = new Border
+{
+    Stroke = Colors.Blue,
+    Content = new Label { Text = "Mein Element" }
+};
+
+AbsoluteLayout.SetLayoutBounds(myView, new Rect(100, 100, 200, 100));
+canvas.Children.Add(myView);
 ```
 
-### Schritt 4: Canvas-Größe anpassen
+## ⚙️ Konfiguration
 
-Die Canvas-Größe sollte Ihren tatsächlichen Koordinaten entsprechen. Passen Sie in `ZoomPanCanvas.cs` an:
+### Canvas-Größe anpassen
+
+**Wo:** `ZoomPanCanvas.cs`, Zeile ~28-33
 
 ```csharp
-public ZoomPanCanvas()
+_canvas = new AbsoluteLayout
 {
-    _canvas = new AbsoluteLayout
-    {
-        WidthRequest = 3000,   // ← Ihre Canvas-Breite
-        HeightRequest = 2000,  // ← Ihre Canvas-Höhe
-        BackgroundColor = Colors.White
-    };
-    // ...
-}
+    WidthRequest = 3000,   // ← Ihre Canvas-Breite
+    HeightRequest = 2000,  // ← Ihre Canvas-Höhe
+    BackgroundColor = Colors.White
+};
 ```
 
-**Wie finde ich die richtige Größe?**
+**Wie berechnen?**
 - Nehmen Sie die maximalen X/Y-Koordinaten Ihrer Elemente + Puffer
-- Beispiel: Größter X-Wert = 2500, größter Y-Wert = 1800 → Canvas = 3000×2000
+- Beispiel: Größter X = 2500, größter Y = 1800 → Canvas = 3000 × 2000
 
-### Schritt 5: Eigene Tap-Handler behalten
+### Ausgangspunkt (Initiale Position & Zoom) festlegen
 
-Wenn Ihre Tische bereits Tap-Gesten haben, funktionieren diese weiterhin:
+**Wo:** `ZoomPanCanvas.cs`, Zeile ~70-80 in `OnSizeChanged()`
+
+**Standard:** Canvas ist zentriert, Zoom = 1.0
 
 ```csharp
-var meinTisch = new ContentView
+private void OnSizeChanged(object? sender, EventArgs e)
 {
-    Content = new Border { /* ... */ }
-};
+    if (!_isInitialized && Width > 0 && Height > 0)
+    {
+        // ↓↓↓ HIER Ausgangspunkt ändern ↓↓↓
 
-// Ihre bestehenden Tap-Handler bleiben erhalten
-var tapGesture = new TapGestureRecognizer();
-tapGesture.Tapped += async (s, e) =>
-{
-    // Ihr Code hier - funktioniert trotz Zoom/Pan!
-    await IhreTischDetailsAnzeigen(tischId);
-};
-meinTisch.GestureRecognizers.Add(tapGesture);
+        // Standard: Zentriert, Zoom 1.0
+        _currentScale = 1.0;
+        _xOffset = 0;
+        _yOffset = 0;
+
+        // Beispiel: Initial herausgezoomt (50%)
+        // _currentScale = 0.5;
+        // _xOffset = 0;
+        // _yOffset = 0;
+
+        // Beispiel: Initial auf bestimmte Position verschoben
+        // _currentScale = 1.0;
+        // _xOffset = -200;  // 200px nach links verschoben
+        // _yOffset = -100;  // 100px nach oben verschoben
+
+        // Beispiel: Reingezoomt auf einen bestimmten Bereich
+        // _currentScale = 1.5;
+        // _xOffset = -300;
+        // _yOffset = -200;
+
+        _contentHost.Scale = _currentScale;
+        _contentHost.TranslationX = _xOffset;
+        _contentHost.TranslationY = _yOffset;
+        _isInitialized = true;
+    }
+}
 ```
 
-## 🔧 Konfiguration
+**Tipp:** Negative Offsets verschieben den Inhalt nach oben/links, positive nach unten/rechts.
 
-### Zoom-Grenzen ändern
+### Zoom-Grenzen anpassen
+
+**Wo:** `ZoomPanCanvas.cs`, Zeile ~12-13
 
 ```csharp
-// In ZoomPanCanvas.cs
-private const double MinScale = 0.5;   // Minimaler Zoom (50%)
-private const double MaxScale = 3.0;   // Maximaler Zoom (300%)
+private const double MinScale = 0.1;   // Minimaler Zoom (10% = weit rausgezoomt)
+private const double MaxScale = 3.0;   // Maximaler Zoom (300% = weit reingezoomt)
 ```
 
-### Zoom-Geschwindigkeit (Mausrad) anpassen
+**Auch in den Platform Handlers anpassen:**
 
+**Android:** `Platforms/Android/Handlers/ZoomPanCanvasHandler.cs`, Zeile ~97
 ```csharp
-// In ZoomPanCanvas.cs, OnPointerWheelChanged
-var zoomFactor = delta > 0 ? 1.1 : 0.9;  // 10% pro Tick
-// Größerer Wert = schnelleres Zoomen
-var zoomFactor = delta > 0 ? 1.2 : 0.8;  // 20% pro Tick
+newScale = Math.Max(0.1f, Math.Min(3.0f, newScale));  // ← Hier anpassen
 ```
 
-### Performance-Tuning (Frame-Throttling)
-
+**iOS:** `Platforms/iOS/Handlers/ZoomPanCanvasHandler.cs`, Zeile ~61
 ```csharp
-// In ZoomPanCanvas.cs
-private const int UpdateThrottleMs = 16;  // Standard: ~60 FPS
-
-// Für ältere Geräte (langsamer, aber weniger Lag):
-private const int UpdateThrottleMs = 33;  // ~30 FPS
-
-// Für sehr neue Geräte (schneller, aber mehr CPU-Last):
-private const int UpdateThrottleMs = 8;   // ~120 FPS
-
-// Throttling komplett deaktivieren (nicht empfohlen):
-private const int UpdateThrottleMs = 0;   // Kein Throttling
+newScale = (nfloat)Math.Max(0.1, Math.Min(3.0, newScale));  // ← Hier anpassen
 ```
-
-**Wichtig**: Bei Lag → Wert **erhöhen** (z.B. 33ms). Bei zu langsamer Reaktion → Wert **verringern** (z.B. 8ms).
 
 ### Hintergrundfarbe ändern
 
+**Wo:** `ZoomPanCanvas.cs`
+
 ```csharp
-// Canvas-Hintergrund
+// Canvas-Hintergrund (Zeile ~32)
 _canvas = new AbsoluteLayout
 {
-    BackgroundColor = Colors.LightGray  // Ihre Farbe
+    BackgroundColor = Colors.White  // ← Ihre Farbe
 };
 
-// Äußerer Bereich (außerhalb Canvas)
+// Äußerer Bereich (außerhalb Canvas, Zeile ~48)
 _rootGrid = new Grid
 {
-    BackgroundColor = Colors.DarkGray   // Ihre Farbe
+    BackgroundColor = Colors.LightGray  // ← Ihre Farbe
 };
 ```
 
-## 📱 Platform-spezifisches Verhalten
+## 🎨 Elemente-Darstellung anpassen
 
-### Android & iOS
-- ✅ Pinch-to-Zoom: Zwei Finger zusammen/auseinander
-- ✅ Pan: Ein Finger wischen
-- ✅ Tap: Einmal tippen
+### Beispiel: Tisch-Darstellung ändern
 
-### Windows (Desktop)
-- ✅ Zoom: Mausrad hoch/runter
-- ✅ Pan: Linke Maustaste gedrückt halten + Ziehen
-- ✅ Tap: Linksklick
-- ✅ Touchpad: Pinch-Geste funktioniert auch
-
-## 🎨 Anpassung der Tisch-Darstellung
-
-Die Standard-Tischdarstellung können Sie in `CreateTableView()` anpassen:
+**Wo:** `ZoomPanCanvas.cs`, Methode `CreateTableView()`, Zeile ~135-178
 
 ```csharp
 private ContentView CreateTableView(TableModel table)
 {
+    // Hier Ihr eigenes Design erstellen
     var border = new Border
     {
-        Stroke = Colors.DarkBlue,      // Rahmenfarbe
-        StrokeThickness = 2,            // Rahmendicke
-        BackgroundColor = Colors.LightBlue,  // Füllfarbe
+        Stroke = Colors.DarkBlue,           // ← Rahmenfarbe
+        StrokeThickness = 2,                // ← Rahmendicke
+        BackgroundColor = Colors.LightBlue, // ← Füllfarbe
         StrokeShape = new RoundRectangle { CornerRadius = 8 },
         Content = new Label
         {
@@ -273,92 +282,153 @@ private ContentView CreateTableView(TableModel table)
         }
     };
 
-    // Hier Ihr eigenes Design einfügen
-    // z.B. Icons, mehrere Labels, Bilder, etc.
+    // Tap-Geste hinzufügen
+    var tableView = new ContentView { Content = border };
+    var tapGesture = new TapGestureRecognizer();
+    tapGesture.Tapped += async (s, e) =>
+    {
+        // Ihr Click-Handler
+        await DisplayAlert("Info", $"{table.Name} angeklickt!", "OK");
+    };
+    tableView.GestureRecognizers.Add(tapGesture);
 
-    return new ContentView { Content = border };
+    return tableView;
 }
 ```
 
-## 🔄 Migration von bestehenden Layouts
+## 📱 Plattform-spezifisches Verhalten
 
-### Von ScrollView mit AbsoluteLayout
+### Android
+- ✅ **Native ScaleGestureDetector**: Direkt vom Android OS
+- ✅ **Pinch-to-Zoom**: Zwei Finger zusammen/auseinander
+- ✅ **Pan**: Ein Finger wischen
+- ✅ **Hardware-beschleunigt**: `android:hardwareAccelerated="true"` in AndroidManifest.xml
 
-**Vorher:**
-```xml
-<ScrollView>
-    <AbsoluteLayout x:Name="MeinLayout">
-        <!-- Elemente -->
-    </AbsoluteLayout>
-</ScrollView>
-```
+### iOS
+- ✅ **Native UIPinchGestureRecognizer**: Direkt vom iOS UIKit
+- ✅ **Pinch-to-Zoom**: Zwei Finger zusammen/auseinander
+- ✅ **Pan**: Ein Finger wischen
+- ✅ **Simultaneous Gestures**: Zoom und Pan gleichzeitig möglich
 
-**Nachher:**
-```xml
-<controls:ZoomPanCanvas x:Name="ZoomPanCanvas" />
-```
+### Windows
+- ✅ **MAUI GestureRecognizers**: Für Touch-Displays
+- ✅ **Mausrad-Zoom**: Mausrad hoch/runter
+- ✅ **Pan**: Linke Maustaste + Ziehen
 
-Dann im Code:
-```csharp
-var canvas = ZoomPanCanvas.GetCanvas();
-// Alle Ihre Elemente zu canvas.Children hinzufügen
-```
+## 🔧 Programmatisch zoomen/pannen
 
-### Von Grid/StackLayout
-
-Wenn Ihre Elemente relative Positionen haben, müssen Sie sie in absolute Positionen konvertieren:
+### Zoom zurücksetzen
 
 ```csharp
-// Beispiel: Gleichmäßig verteilt
-for (int i = 0; i < tische.Count; i++)
+ZoomPanCanvas.ResetZoomPan();
+```
+
+### Programmatisch zoomen
+
+```csharp
+// In ZoomPanCanvas.cs diese Methode hinzufügen:
+public void SetZoom(double scale, double offsetX = 0, double offsetY = 0)
 {
-    double x = 100 + (i % 5) * 250;  // 5 pro Reihe, 250px Abstand
-    double y = 100 + (i / 5) * 150;  // 150px zwischen Reihen
-
-    AbsoluteLayout.SetLayoutBounds(tische[i], new Rect(x, y, 120, 80));
+    _currentScale = Math.Max(MinScale, Math.Min(MaxScale, scale));
+    _xOffset = offsetX;
+    _yOffset = offsetY;
+    _contentHost.Scale = _currentScale;
+    _contentHost.TranslationX = _xOffset;
+    _contentHost.TranslationY = _yOffset;
 }
+
+// Dann nutzen:
+ZoomPanCanvas.SetZoom(1.5);  // 150% Zoom
+ZoomPanCanvas.SetZoom(0.5, -100, -50);  // 50% Zoom, verschoben
 ```
 
 ## 🐛 Troubleshooting
 
-### Problem: Elemente sind nicht sichtbar
+### Problem: Elemente sind nicht sichtbar beim Rauszoomen
 
-**Lösung**: Canvas-Größe überprüfen
+**Lösung:** Canvas-Größe ist zu klein
+
 ```csharp
-// Canvas muss groß genug für alle Elemente sein
-_canvas.WidthRequest = MaxX + 500;   // Max X-Koordinate + Puffer
-_canvas.HeightRequest = MaxY + 500;  // Max Y-Koordinate + Puffer
+// In ZoomPanCanvas.cs die Canvas-Größe erhöhen
+_canvas.WidthRequest = 5000;   // Größer machen
+_canvas.HeightRequest = 3000;  // Größer machen
 ```
 
-### Problem: Zoom funktioniert nicht
+### Problem: Zoom funktioniert nicht auf Android/iOS
 
-**Lösung Windows**: Stellen Sie sicher, dass die Handler-Changed-Methode läuft:
-```csharp
-// In ZoomPanCanvas.cs
-this.HandlerChanged += OnHandlerChanged;
+**Lösung:** Handler nicht registriert
+
+Überprüfen Sie `MauiProgram.cs` - die `.ConfigureMauiHandlers()` Zeilen müssen vorhanden sein!
+
+### Problem: App laggt beim Zoomen
+
+**Lösungen:**
+1. **Weniger Elemente**: Optimal 10-50 Elemente, max 200
+2. **Einfache Views**: Keine verschachtelten Layouts
+3. **Release Build testen**: Debug-Builds sind 2-3x langsamer!
+
+```bash
+# Für Android Release Build:
+dotnet publish -f net9.0-android -c Release
 ```
 
 ### Problem: Tap-Gesten reagieren nicht
 
-**Lösung**: InputTransparent auf false setzen:
+**Lösung:** InputTransparent prüfen
+
 ```csharp
 var element = new ContentView
 {
+    Content = myBorder,
     InputTransparent = false  // ← Wichtig!
 };
 ```
 
-### Problem: Pan ist ruckelig
+## 💡 Best Practices
 
-**Lösung**: Reduzieren Sie die Anzahl der Kinder oder nutzen Sie Virtualisierung für große Datenmengen.
+### Performance
+
+**✅ Gut:**
+```csharp
+// Einfache View-Struktur
+var border = new Border
+{
+    Content = new Label { Text = "Tisch 1" }
+};
+```
+
+**❌ Schlecht:**
+```csharp
+// Verschachtelte Layouts vermeiden
+var grid = new Grid
+{
+    Children = {
+        new StackLayout {
+            Children = { new Grid { /* ... */ } }
+        }
+    }
+};
+```
+
+### Anzahl der Elemente
+
+- ✅ **10-50 Elemente**: Butter-smooth
+- ⚠️ **50-200 Elemente**: Noch flüssig
+- ❌ **200+ Elemente**: Virtualisierung/Lazy Loading nutzen!
+
+### Bilder optimieren
+
+- Verwenden Sie komprimierte PNG/JPG
+- Skalieren Sie auf tatsächlich benötigte Größe
+- Vermeiden Sie transparente PNGs wenn möglich
 
 ## 📋 Vollständiges Beispiel
 
 Siehe `src/TischplanApp/` für ein vollständiges, funktionierendes Beispiel mit:
-- 12 Beispiel-Tischen
-- Verschiedenen Größen und Positionen
-- Tap-Handlern auf jedem Tisch
-- Windows + Android + iOS Support
+- 6 Demo-Tischen
+- Tap-Handlern
+- Android, iOS und Windows Support
+- Native Gesture Handlers
 
 ### Beispiel starten:
 
@@ -388,6 +458,38 @@ dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net9.0-ios
 - **Minimum iOS**: 14.2
 - **Minimum Windows**: Windows 10 Build 19041
 
+### Architektur
+
+```
+┌─────────────────────────────────────────┐
+│         ZoomPanCanvas.cs                │  ← Shared Code (alle Plattformen)
+│  - AbsoluteLayout (_canvas)             │
+│  - ContentView (_contentHost)           │
+│  - Scale + TranslationX/Y Management    │
+└─────────────────────────────────────────┘
+                   │
+      ┌────────────┼────────────┐
+      │            │            │
+      ▼            ▼            ▼
+┌──────────┐ ┌──────────┐ ┌──────────┐
+│ Android  │ │   iOS    │ │ Windows  │
+│  Handler │ │  Handler │ │  MAUI    │
+├──────────┤ ├──────────┤ │ Gestures │
+│ Scale    │ │ UIPinch  │ │  + Mouse │
+│ Gesture  │ │ Gesture  │ │  Wheel   │
+│ Detector │ │ Recogniz.│ │          │
+│          │ │          │ │          │
+│ Gesture  │ │ UIPan    │ │          │
+│ Detector │ │ Gesture  │ │          │
+└──────────┘ └──────────┘ └──────────┘
+     │            │            │
+     └────────────┴────────────┘
+              │
+              ▼
+    Proportionale Skalierung:
+    translation *= (newScale / oldScale)
+```
+
 ## 📄 Lizenz
 
 Dieses Projekt ist Open Source und für kommerzielle und private Projekte frei nutzbar.
@@ -395,86 +497,6 @@ Dieses Projekt ist Open Source und für kommerzielle und private Projekte frei n
 ## 🤝 Beiträge
 
 Verbesserungen und Bug-Fixes sind willkommen! Erstellen Sie einfach einen Pull Request.
-
-## 💡 Tipps & Best Practices
-
-### Performance - Für flüssiges Zoomen & Panning
-
-#### ✅ Optimierungen die bereits implementiert sind:
-
-- **Hardware-Beschleunigung**: `IsClippedToBounds = false` aktiviert GPU-Rendering
-- **Android Hardware-Layer**: Während Gesten wird `LayerType.Hardware` aktiviert für GPU-cached Rendering
-- **Frame-Throttling (16ms)**: Updates auf max. 60 FPS begrenzt - verhindert Overload bei schnellen Gesten
-- **Direkte Property-Updates**: Keine Batch-Operationen die Lag verursachen könnten
-- **Pan & Zoom Throttling**: Beide Gesten-Typen profitieren von Performance-Optimierungen
-
-#### 📱 Wichtig für Android (Smooth Zoom):
-
-**1. AndroidManifest.xml - Hardware-Beschleunigung aktivieren:**
-```xml
-<application android:hardwareAccelerated="true">
-```
-Dies ist **bereits aktiviert** in der Demo-App.
-
-**2. Anzahl der Elemente begrenzen:**
-- ✅ **Optimal**: 10-50 Elemente → butter-smooth
-- ⚠️ **Akzeptabel**: 50-200 Elemente → noch flüssig
-- ❌ **Problematisch**: 200+ Elemente → Lazy Loading nutzen!
-
-**3. Einfache View-Strukturen verwenden:**
-```csharp
-// ✅ GUT: Einfache Border + Label
-var border = new Border
-{
-    Content = new Label { Text = "Tisch 1" }
-};
-
-// ❌ LANGSAM: Verschachtelte Layouts vermeiden
-var grid = new Grid
-{
-    Children = {
-        new StackLayout {
-            Children = { new Image(), new Label() }
-        }
-    }
-};
-```
-
-**4. Bilder optimieren:**
-- Verwenden Sie **komprimierte PNG/JPG** (nicht riesige Dateien)
-- Skalieren Sie Bilder auf die **tatsächlich benötigte Größe**
-- Vermeiden Sie transparente PNGs wenn möglich
-
-**5. Debug-Modus vs. Release-Modus:**
-- ⚠️ **Debug-APKs sind DEUTLICH langsamer** (2-3x)
-- ✅ **Testen Sie Performance immer mit Release-Build:**
-```bash
-dotnet publish -f net9.0-android -c Release -p:AndroidPackageFormat=apk
-```
-
-**6. Android-Geräte:**
-- **Moderne Geräte** (ab 2020): Kein Problem mit 100+ Elementen
-- **Ältere Geräte** (vor 2018): Begrenzen Sie auf max. 50 Elemente
-
-#### 🚀 Weitere Performance-Tipps:
-
-- **Lazy Loading**: Laden Sie nur sichtbare Elemente bei sehr großen Datasets
-- **Virtualisierung**: Für 1000+ Elemente erwägen Sie Virtualisierung
-- **Canvas-Größe**: Machen Sie die Canvas nicht größer als nötig
-- **Schatten vermeiden**: Shadows sind teuer auf mobilen Geräten
-
-### UX
-
-- **Visuelle Grenzen**: Zeigen Sie Nutzern, wo die Canvas-Grenzen sind
-- **Zoom-Level-Anzeige**: Optional eine Zoom-Prozentzahl anzeigen
-- **Reset-Button**: Bieten Sie einen Button zum Zurücksetzen der Ansicht
-
-### Erweiterungen
-
-- **Mehrere Canvas-Größen**: Passen Sie dynamisch an Bildschirmgröße an
-- **Rotation**: Erweitern Sie um Rotations-Support
-- **Snap-to-Grid**: Fügen Sie Raster-Snapping hinzu
-- **Kollisionserkennung**: Prüfen Sie Überlappungen von Elementen
 
 ---
 
