@@ -1,6 +1,13 @@
 # MAUI ZoomPanCanvas - Production-Ready Zoom & Pan für .NET MAUI
 
+[![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![MAUI](https://img.shields.io/badge/MAUI-10.0.0--preview-512BD4)](https://dotnet.microsoft.com/apps/maui)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Windows-lightgrey)](https://github.com/petarxxg/MauiScrollenZoomenView)
+[![License](https://img.shields.io/badge/License-Open%20Source-green)](https://github.com/petarxxg/MauiScrollenZoomenView)
+
 Eine **produktionsreife, buttery-smooth** Zoom & Pan Canvas-Komponente für .NET MAUI Apps mit **nativen Gesture Handlers** für Android und iOS.
+
+> **⚡ .NET 10 Ready!** Dieses Projekt wurde auf .NET 10 migriert und ist vollständig kompatibel mit Visual Studio 2026 Insiders.
 
 ## 🎯 Überblick
 
@@ -23,6 +30,82 @@ Diese Komponente ermöglicht es, **beliebige Inhalte in Ihrer bestehenden MAUI A
 - ✅ **Hit-Testing funktioniert**: Tap-Gesten auf Elemente auch bei Zoom/Pan
 - ✅ **Reine MAUI**: Keine externen Dependencies
 - ✅ **Cross-Platform**: Android, iOS, Windows
+- ✅ **.NET 10 Kompatibel**: Voll migriert auf .NET 10 mit allen API-Updates
+
+## 📦 Voraussetzungen
+
+### Empfohlene Entwicklungsumgebung
+
+- **Visual Studio 2026 Insiders** (empfohlen für .NET 10)
+- **.NET 10 SDK** (10.0.100-rc.2 oder höher)
+- **MAUI Workload** für .NET 10
+
+### Installation .NET 10 SDK
+
+```bash
+# SDK-Version prüfen
+dotnet --version
+
+# Sollte mindestens 10.0.100-rc.2 sein
+```
+
+### MAUI Workload installieren
+
+```bash
+dotnet workload install maui
+```
+
+## 🔄 .NET 10 Migration Guide
+
+Falls Sie von .NET 9 upgraden, beachten Sie diese Breaking Changes:
+
+### 1. App.xaml.cs - Window Initialisierung
+
+**❌ Alt (.NET 9):**
+```csharp
+public App()
+{
+    InitializeComponent();
+    MainPage = new MainPage();  // Deprecated in .NET 10
+}
+```
+
+**✅ Neu (.NET 10):**
+```csharp
+public App()
+{
+    InitializeComponent();
+}
+
+protected override Window CreateWindow(IActivationState? activationState)
+{
+    return new Window(new MainPage());
+}
+```
+
+### 2. DisplayAlert API
+
+**❌ Alt:**
+```csharp
+await Application.Current.MainPage.DisplayAlert("Titel", "Text", "OK");
+```
+
+**✅ Neu:**
+```csharp
+var window = Application.Current?.Windows.FirstOrDefault();
+await window.Page.DisplayAlertAsync("Titel", "Text", "OK");
+```
+
+### 3. iOS Handler - ContentView Namenskonflikt
+
+In .NET 10 gibt es einen Namenskonflikt zwischen `Microsoft.Maui.Controls.ContentView` und `Microsoft.Maui.Platform.ContentView`.
+
+**Lösung in ZoomPanCanvasHandler.cs (iOS):**
+```csharp
+using PlatformView = Microsoft.Maui.Platform.ContentView;
+
+protected override PlatformView CreatePlatformView() { ... }
+```
 
 ## 🚀 Integration in Ihre bestehende App
 
@@ -432,7 +515,7 @@ Siehe `src/TischplanApp/` für ein vollständiges, funktionierendes Beispiel mit
 
 ### Beispiel starten:
 
-**Visual Studio:**
+**Visual Studio 2026 Insiders:**
 1. Öffne `TischplanApp.sln`
 2. Wähle Platform (Windows/Android/iOS)
 3. F5 drücken
@@ -448,6 +531,29 @@ dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net10.0-android
 # iOS (nur macOS)
 dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net10.0-ios
 ```
+
+## 📱 Fertige APK herunterladen
+
+Sie können die vorgefertigte Android APK direkt aus diesem Repository herunterladen:
+
+**[⬇️ TischplanApp.apk herunterladen](https://github.com/petarxxg/MauiScrollenZoomenView/raw/master/TischplanApp.apk)**
+
+**APK Details:**
+- **Framework**: .NET 10.0.100-rc.2
+- **MAUI Version**: 10.0.0-preview
+- **Größe**: 28 MB
+- **Minimum Android**: API 21 (Android 5.0)
+- **Features**:
+  - ✅ Native Android Gesture Detectors
+  - ✅ Buttery-smooth Pinch-to-Zoom
+  - ✅ 6 Demo-Tische zum Testen
+  - ✅ Tap-Handler mit Alerts
+
+**Installation:**
+1. APK auf Android-Gerät herunterladen
+2. Installation aus unbekannten Quellen erlauben
+3. APK installieren
+4. App öffnen und Zoom/Pan testen!
 
 ## 🛠️ Technische Details
 
@@ -490,6 +596,32 @@ dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net10.0-ios
     Proportionale Skalierung:
     translation *= (newScale / oldScale)
 ```
+
+## 📝 Changelog
+
+### Version 2.0 - .NET 10 Migration (27. Oktober 2025)
+- ✅ **Migration auf .NET 10**
+  - TargetFrameworks: net9.0 → net10.0 (Android, iOS, Windows)
+  - MAUI Packages: 9.0.10 → 10.0.0-preview
+  - SDK: .NET 10.0.100-rc.2.25502.107
+
+- ✅ **Breaking Changes behoben**
+  - App.xaml.cs: `MainPage` → `CreateWindow()` überschrieben
+  - ZoomPanCanvas.cs: `Application.MainPage` → `Windows[0].Page`
+  - ZoomPanCanvas.cs: `DisplayAlert` → `DisplayAlertAsync`
+  - iOS Handler: ContentView Namenskonflikt mit alias behoben
+
+- ✅ **Build-Status**
+  - 0 Warnungen, 0 Fehler
+  - Vollständig kompatibel mit Visual Studio 2026 Insiders
+  - APK neu gebaut (28 MB)
+
+### Version 1.0 - Initial Release
+- ✅ Native Android/iOS Gesture Handlers
+- ✅ Proportionale Zoom-Skalierung
+- ✅ Windows Mouse Wheel Support
+- ✅ Buttery-smooth Performance
+- ✅ Production-ready Code
 
 ## 📄 Lizenz
 
