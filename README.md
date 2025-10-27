@@ -25,6 +25,11 @@ Diese Komponente ermöglicht es, **beliebige Inhalte in Ihrer bestehenden MAUI A
 - **Rauszoomen**: Mausrad nach unten drehen ↓
 - **Verschieben**: Linke Maustaste gedrückt halten + Maus bewegen
 
+### 🎮 Android Emulator (Desktop-Testing)
+- **Zoom Methode 1**: Mausrad nach oben/unten ↑↓ (einfachste Methode)
+- **Zoom Methode 2**: Strg + Linke Maustaste + Ziehen (Pinch-Simulation)
+- **Verschieben**: Linke Maustaste (ohne Strg) + Ziehen
+
 ### 📱 Am Smartphone/Tablet (Android/iOS)
 - **Zoomen**: Zwei Finger zusammen/auseinander bewegen (Pinch)
 - **Verschieben**: Ein Finger wischen
@@ -401,9 +406,10 @@ private ContentView CreateTableView(TableModel table)
 - ✅ **Hardware-beschleunigt**: `android:hardwareAccelerated="true"` in AndroidManifest.xml
 
 **Im Android Emulator (Desktop-Testing):**
-- ✅ **Mausrad-Zoom**: 🖱️ Mausrad nach oben/unten = Zoom in/out
-- ✅ **Maus-Pan**: Linke Maustaste + Ziehen = Verschieben
-- ✅ **Pinch-Zoom simulieren**: Strg + Mausrad (Android Emulator Feature)
+- ✅ **Mausrad-Zoom**: 🖱️ Mausrad nach oben/unten = Direkter Zoom in/out
+- ✅ **Pinch-Zoom simulieren**: Strg + Linke Maustaste + Ziehen = Pinch-Geste simulieren
+- ✅ **Maus-Pan**: Linke Maustaste (ohne Strg) + Ziehen = Verschieben
+- 💡 **Tipp**: Beide Zoom-Methoden funktionieren! Mausrad ist am einfachsten.
 - 💡 **Technisch**: GenericMotionEvent mit Axis.Vscroll für Mausrad-Support
 
 ### iOS
@@ -636,10 +642,15 @@ Sie können die vorgefertigte Android APK direkt aus diesem Repository herunterl
   - Zoom-Faktor: 1.1x pro Mausrad-Schritt (wie Windows)
   - Perfekt für Desktop-Testing im Android Emulator
 
+- ✅ **Zwei Zoom-Methoden im Emulator**
+  - **Methode 1**: Mausrad nach oben/unten (neu, direkt, einfachste Methode)
+  - **Methode 2**: Strg + Linke Maustaste + Ziehen (Standard Android Emulator Pinch-Simulation)
+  - Beide Methoden funktionieren parallel!
+
 - ✅ **Verbesserte Bedienung**
-  - Android Emulator: Mausrad = Zoom, Linke Maustaste + Ziehen = Pan
   - Kein "nach oben/unten wischen" mehr beim Mausrad-Scrollen
-  - README erweitert mit Emulator-Bedienungsanleitung
+  - Pan: Linke Maustaste (ohne Strg) + Ziehen
+  - README erweitert mit detaillierter Emulator-Bedienungsanleitung
 
 ### Version 2.0 - .NET 10 Migration (27. Oktober 2025)
 - ✅ **Migration auf .NET 10**
