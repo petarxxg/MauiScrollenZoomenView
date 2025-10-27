@@ -87,29 +87,21 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         public override bool OnScale(ScaleGestureDetector? detector)
         {
             if (detector == null) return false;
-            if (_handler.PlatformView == null) return false;
 
             // Calculate new scale
             var scaleDelta = detector.ScaleFactor;
-            var newScale = _handler._scaleFactor * scaleDelta;
+            var oldScale = _handler._scaleFactor;
+            var newScale = oldScale * scaleDelta;
 
             // Clamp scale
             newScale = Math.Max(0.1f, Math.Min(3.0f, newScale));
 
-            // Zoom auf die MITTE des Bildschirms (nicht auf Finger-Position!)
-            var viewCenterX = _handler.PlatformView.Width / 2.0f;
-            var viewCenterY = _handler.PlatformView.Height / 2.0f;
-
-            // Calculate position in content coordinates before scaling (an der View-Mitte)
-            var contentX = (viewCenterX - _handler._translateX) / _handler._scaleFactor;
-            var contentY = (viewCenterY - _handler._translateY) / _handler._scaleFactor;
-
-            // Update scale
+            // Bei zentriertem Canvas (Anchor 0.5): Translation proportional skalieren!
+            // Was du gerade siehst, wird einfach größer/kleiner OHNE Verschiebung
+            var scaleRatio = newScale / oldScale;
+            _handler._translateX *= scaleRatio;
+            _handler._translateY *= scaleRatio;
             _handler._scaleFactor = newScale;
-
-            // Adjust translation so view center stays at same content position
-            _handler._translateX = viewCenterX - (contentX * _handler._scaleFactor);
-            _handler._translateY = viewCenterY - (contentY * _handler._scaleFactor);
 
             // Apply transformation on UI thread
             Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>

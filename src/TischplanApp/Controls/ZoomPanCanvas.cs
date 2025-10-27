@@ -106,17 +106,17 @@ public class ZoomPanCanvas : ContentView
         var pointerPoint = e.GetCurrentPoint(sender as Microsoft.UI.Xaml.UIElement);
         var delta = pointerPoint.Properties.MouseWheelDelta;
         var zoomFactor = delta > 0 ? 1.1 : 0.9;
-        var newScale = _currentScale * zoomFactor;
+        var oldScale = _currentScale;
+        var newScale = oldScale * zoomFactor;
         newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
 
-        if (Math.Abs(newScale - _currentScale) > 0.001)
+        if (Math.Abs(newScale - oldScale) > 0.001)
         {
-            // Zoom auf die MITTE des Bildschirms
-            var contentX = (0 - _xOffset) / _currentScale;
-            var contentY = (0 - _yOffset) / _currentScale;
+            // Translation proportional skalieren - was du siehst bleibt gleich!
+            var scaleRatio = newScale / oldScale;
+            _xOffset *= scaleRatio;
+            _yOffset *= scaleRatio;
             _currentScale = newScale;
-            _xOffset = 0 - (contentX * _currentScale);
-            _yOffset = 0 - (contentY * _currentScale);
             _contentHost.Scale = _currentScale;
             _contentHost.TranslationX = _xOffset;
             _contentHost.TranslationY = _yOffset;
@@ -186,23 +186,17 @@ public class ZoomPanCanvas : ContentView
         else if (e.Status == GestureStatus.Running)
         {
             // Direct scale calculation
+            var oldScale = _currentScale;
             var newScale = _startScale * e.Scale;
             newScale = Math.Max(MinScale, Math.Min(MaxScale, newScale));
 
-            if (Math.Abs(newScale - _currentScale) < 0.001) return;
+            if (Math.Abs(newScale - oldScale) < 0.001) return;
 
-            // Zoom auf die MITTE des Bildschirms (nicht auf Finger-Position!)
-            // Der Canvas ist zentriert mit Anchor 0.5, also bleibt er an seiner Position
-
-            // Berechne Content-Position an der View-Mitte (0, 0 weil zentriert)
-            var contentX = (0 - _xOffset) / _currentScale;
-            var contentY = (0 - _yOffset) / _currentScale;
-
+            // Translation proportional skalieren - was du siehst bleibt gleich!
+            var scaleRatio = newScale / oldScale;
+            _xOffset *= scaleRatio;
+            _yOffset *= scaleRatio;
             _currentScale = newScale;
-
-            // Passe Offset an damit View-Mitte am gleichen Content-Punkt bleibt
-            _xOffset = 0 - (contentX * _currentScale);
-            _yOffset = 0 - (contentY * _currentScale);
 
             // Update immediately
             _contentHost.Scale = _currentScale;
