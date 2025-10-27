@@ -164,9 +164,10 @@ public class ZoomPanCanvas : ContentView
         var tapGesture = new TapGestureRecognizer();
         tapGesture.Tapped += async (s, e) =>
         {
-            if (Application.Current?.MainPage != null)
+            var window = Application.Current?.Windows.FirstOrDefault();
+            if (window?.Page != null)
             {
-                await Application.Current.MainPage.DisplayAlert(
+                await window.Page.DisplayAlertAsync(
                     "Tisch Info",
                     $"Sie haben {table.Name} ausgewählt.\nPosition: ({table.X:F0}, {table.Y:F0})",
                     "OK").ConfigureAwait(false);

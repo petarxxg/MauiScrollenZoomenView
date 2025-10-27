@@ -18,7 +18,8 @@
       "Bash(dotnet remove:*)",
       "Bash(gh auth status:*)",
       "Bash(gh repo create:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(Select-String -Pattern \"warning|error|succeeded|failed\")"
     ],
     "deny": [],
     "ask": []
