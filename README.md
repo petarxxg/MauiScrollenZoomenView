@@ -369,7 +369,7 @@ _canvas.HeightRequest = 3000;  // Größer machen
 
 ```bash
 # Für Android Release Build:
-dotnet publish -f net9.0-android -c Release
+dotnet publish -f net10.0-android -c Release
 ```
 
 ### Problem: Tap-Gesten reagieren nicht
@@ -440,19 +440,20 @@ Siehe `src/TischplanApp/` für ein vollständiges, funktionierendes Beispiel mit
 **CLI:**
 ```bash
 # Windows
-dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net9.0-windows10.0.19041.0
+dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net10.0-windows10.0.19041.0
 
 # Android
-dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net9.0-android
+dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net10.0-android
 
 # iOS (nur macOS)
-dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net9.0-ios
+dotnet build src/TischplanApp/TischplanApp.csproj -t:Run -f net10.0-ios
 ```
 
 ## 🛠️ Technische Details
 
-- **Framework**: .NET 9 MAUI
-- **MAUI Version**: 9.0.10
+- **Framework**: .NET 10 MAUI
+- **MAUI Version**: 10.0.0-preview
+- **IDE**: Visual Studio 2026 Insiders (empfohlen)
 - **Target Platforms**: Android, iOS, Windows
 - **Minimum Android**: API 21 (Android 5.0)
 - **Minimum iOS**: 14.2

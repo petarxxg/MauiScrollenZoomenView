@@ -3,6 +3,7 @@ using Microsoft.Maui.Platform;
 using TischplanApp.Controls;
 using UIKit;
 using CoreGraphics;
+using PlatformView = Microsoft.Maui.Platform.ContentView;
 
 namespace TischplanApp.Platforms.iOS.Handlers;
 
@@ -15,7 +16,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     private nfloat _translateY = 0f;
     private nfloat _lastScale = 1.0f;
 
-    protected override ContentView CreatePlatformView()
+    protected override PlatformView CreatePlatformView()
     {
         var view = base.CreatePlatformView();
 
@@ -33,7 +34,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         return view;
     }
 
-    protected override void DisconnectHandler(ContentView platformView)
+    protected override void DisconnectHandler(PlatformView platformView)
     {
         if (_pinchGestureRecognizer != null)
         {
