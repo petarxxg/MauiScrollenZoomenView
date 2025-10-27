@@ -24,6 +24,8 @@ public static class MauiProgram
             {
 #if ANDROID
                 handlers.AddHandler<ZoomPanCanvas, Platforms.Android.Handlers.ZoomPanCanvasHandler>();
+#elif IOS
+                handlers.AddHandler<ZoomPanCanvas, Platforms.iOS.Handlers.ZoomPanCanvasHandler>();
 #endif
             });
 

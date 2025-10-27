@@ -54,9 +54,9 @@ public class ZoomPanCanvas : ContentView
 
         Content = _rootGrid;
 
-#if !ANDROID
-        // On non-Android platforms, use MAUI gesture recognizers
-        // On Android, we use native ScaleGestureDetector via Custom Handler
+#if WINDOWS
+        // On Windows, use MAUI gesture recognizers
+        // On Android/iOS, we use native gesture recognizers via Custom Handlers
         var pinchGesture = new PinchGestureRecognizer();
         pinchGesture.PinchUpdated += OnPinchUpdated;
         GestureRecognizers.Add(pinchGesture);
