@@ -393,10 +393,18 @@ private ContentView CreateTableView(TableModel table)
 ## 📱 Plattform-spezifisches Verhalten
 
 ### Android
+
+**Auf Gerät / Touch:**
 - ✅ **Native ScaleGestureDetector**: Direkt vom Android OS
 - ✅ **Pinch-to-Zoom**: Zwei Finger zusammen/auseinander
 - ✅ **Pan**: Ein Finger wischen
 - ✅ **Hardware-beschleunigt**: `android:hardwareAccelerated="true"` in AndroidManifest.xml
+
+**Im Android Emulator (Desktop-Testing):**
+- ✅ **Mausrad-Zoom**: 🖱️ Mausrad nach oben/unten = Zoom in/out
+- ✅ **Maus-Pan**: Linke Maustaste + Ziehen = Verschieben
+- ✅ **Pinch-Zoom simulieren**: Strg + Mausrad (Android Emulator Feature)
+- 💡 **Technisch**: GenericMotionEvent mit Axis.Vscroll für Mausrad-Support
 
 ### iOS
 - ✅ **Native UIPinchGestureRecognizer**: Direkt vom iOS UIKit
@@ -620,6 +628,18 @@ Sie können die vorgefertigte Android APK direkt aus diesem Repository herunterl
 ```
 
 ## 📝 Changelog
+
+### Version 2.1 - Android Emulator Mausrad-Support (27. Oktober 2025)
+- ✅ **Neue Features**
+  - Android Handler: Mausrad-Zoom im Emulator funktioniert jetzt! 🖱️
+  - GenericMotionEvent Handler für Axis.Vscroll hinzugefügt
+  - Zoom-Faktor: 1.1x pro Mausrad-Schritt (wie Windows)
+  - Perfekt für Desktop-Testing im Android Emulator
+
+- ✅ **Verbesserte Bedienung**
+  - Android Emulator: Mausrad = Zoom, Linke Maustaste + Ziehen = Pan
+  - Kein "nach oben/unten wischen" mehr beim Mausrad-Scrollen
+  - README erweitert mit Emulator-Bedienungsanleitung
 
 ### Version 2.0 - .NET 10 Migration (27. Oktober 2025)
 - ✅ **Migration auf .NET 10**

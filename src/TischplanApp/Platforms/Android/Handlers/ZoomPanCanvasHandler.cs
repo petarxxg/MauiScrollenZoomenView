@@ -33,11 +33,15 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
         // Override touch handling
         platformView.Touch += OnTouch;
+
+        // Mouse wheel support for Android Emulator / Desktop
+        platformView.GenericMotion += OnGenericMotion;
     }
 
     protected override void DisconnectHandler(ContentViewGroup platformView)
     {
         platformView.Touch -= OnTouch;
+        platformView.GenericMotion -= OnGenericMotion;
         base.DisconnectHandler(platformView);
     }
 
@@ -50,6 +54,41 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         var gestureHandled = _gestureDetector?.OnTouchEvent(e.Event) ?? false;
 
         e.Handled = scaleHandled || gestureHandled;
+    }
+
+    private void OnGenericMotion(object? sender, AView.GenericMotionEventArgs e)
+    {
+        if (e.Event == null) return;
+
+        // Handle mouse wheel scrolling (for Android Emulator / Desktop testing)
+        if (e.Event.Action == MotionEventActions.Scroll)
+        {
+            var scrollDelta = e.Event.GetAxisValue(Axis.Vscroll);
+
+            if (Math.Abs(scrollDelta) > 0.01f)
+            {
+                // Zoom in/out based on scroll direction
+                var zoomFactor = scrollDelta > 0 ? 1.1f : 0.9f;
+                var oldScale = _scaleFactor;
+                var newScale = oldScale * zoomFactor;
+
+                // Clamp scale
+                newScale = Math.Max(0.1f, Math.Min(3.0f, newScale));
+
+                if (Math.Abs(newScale - oldScale) > 0.001f)
+                {
+                    // Proportional translation scaling
+                    var scaleRatio = newScale / oldScale;
+                    _translateX *= scaleRatio;
+                    _translateY *= scaleRatio;
+                    _scaleFactor = newScale;
+
+                    ApplyTransformation();
+                }
+
+                e.Handled = true;
+            }
+        }
     }
 
     private void ApplyTransformation()
