@@ -18,6 +18,17 @@ Diese Komponente ermöglicht es, **beliebige Inhalte in Ihrer bestehenden MAUI A
 - 📐 Technische Zeichnungen / CAD-Ansichten
 - 📊 Jede Art von skalierbarer Ansicht
 
+## 🎮 Bedienung (Quick Start)
+
+### 🖥️ Am PC (Windows)
+- **Reinzoomen**: Mausrad nach oben drehen ↑
+- **Rauszoomen**: Mausrad nach unten drehen ↓
+- **Verschieben**: Linke Maustaste gedrückt halten + Maus bewegen
+
+### 📱 Am Smartphone/Tablet (Android/iOS)
+- **Zoomen**: Zwei Finger zusammen/auseinander bewegen (Pinch)
+- **Verschieben**: Ein Finger wischen
+
 ## ✨ Features
 
 - ✅ **Native Gesture Recognizers**: Direkte Nutzung von Android ScaleGestureDetector und iOS UIPinchGestureRecognizer
@@ -393,10 +404,21 @@ private ContentView CreateTableView(TableModel table)
 - ✅ **Pan**: Ein Finger wischen
 - ✅ **Simultaneous Gestures**: Zoom und Pan gleichzeitig möglich
 
-### Windows
-- ✅ **MAUI GestureRecognizers**: Für Touch-Displays
-- ✅ **Mausrad-Zoom**: Mausrad hoch/runter
-- ✅ **Pan**: Linke Maustaste + Ziehen
+### Windows (PC / Laptop)
+
+**Mit Maus:**
+- ✅ **Zoom reinzoomen**: 🖱️ **Mausrad nach oben** drehen (scrollen)
+- ✅ **Zoom rauszoomen**: 🖱️ **Mausrad nach unten** drehen (scrollen)
+- ✅ **Canvas verschieben (Pan)**: 🖱️ **Linke Maustaste** gedrückt halten + Maus bewegen
+
+**Mit Touch-Display:**
+- ✅ **Pinch-to-Zoom**: Zwei Finger zusammen/auseinander bewegen
+- ✅ **Pan**: Ein Finger über Display wischen
+
+**Technische Details:**
+- Windows nutzt MAUI GestureRecognizers (PinchGestureRecognizer, PanGestureRecognizer)
+- Mausrad-Support ist direkt in `OnPointerWheelChanged` implementiert
+- Zoom-Faktor: 1.1x pro Mausrad-Schritt (10% Vergrößerung/Verkleinerung)
 
 ## 🔧 Programmatisch zoomen/pannen
 
