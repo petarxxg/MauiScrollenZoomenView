@@ -65,7 +65,7 @@
 
         <!-- Tischplan mit ItemTemplateSelector IsEditMode="{Binding IsEditMode}"-->
         <controls:ZoomPanCanvas Grid.Row="1"
-                               Tables="{Binding Items}"
+                               Tables="{Binding Items}"  IsEditMode="{Binding IsEditMode}"
                                ItemTemplateSelector="{StaticResource ItemTemplateSelector}"
                                 />
     </Grid>
