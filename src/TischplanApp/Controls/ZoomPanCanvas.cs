@@ -674,37 +674,35 @@ public class ZoomPanCanvas : ContentView
         var scaledHeight = contentHeight * _currentScale;
 
         // For top-left anchored content (Anchor 0,0):
-        double minTranslateX, maxTranslateX, minTranslateY, maxTranslateY;
+        // Content should always stick to top-left, never show gray background on top/left
+        double minTranslateX, minTranslateY;
 
         if (scaledWidth <= viewportWidth)
         {
-            // Content fits in viewport horizontally - allow positioning within viewport
-            minTranslateX = 0;  // Content can be at left edge
-            maxTranslateX = viewportWidth - scaledWidth;  // Content can be at right edge
+            // Content fits in viewport horizontally - fix at left edge
+            minTranslateX = 0;
         }
         else
         {
             // Content is larger - allow scrolling to show all content
-            minTranslateX = -(scaledWidth - viewportWidth);  // Show right edge
-            maxTranslateX = 0;  // Show left edge
+            minTranslateX = -(scaledWidth - viewportWidth);
         }
 
         if (scaledHeight <= viewportHeight)
         {
-            // Content fits in viewport vertically - allow positioning within viewport
-            minTranslateY = 0;  // Content can be at top edge
-            maxTranslateY = viewportHeight - scaledHeight;  // Content can be at bottom edge
+            // Content fits in viewport vertically - fix at top edge
+            minTranslateY = 0;
         }
         else
         {
             // Content is larger - allow scrolling to show all content
-            minTranslateY = -(scaledHeight - viewportHeight);  // Show bottom edge
-            maxTranslateY = 0;  // Show top edge
+            minTranslateY = -(scaledHeight - viewportHeight);
         }
 
-        // Clamp translation to keep content within viewport
-        _xOffset = Math.Max(minTranslateX, Math.Min(maxTranslateX, _xOffset));
-        _yOffset = Math.Max(minTranslateY, Math.Min(maxTranslateY, _yOffset));
+        // Clamp translation: content always stays at or left/above viewport edge
+        // Max is always 0 to prevent gray background on top/left
+        _xOffset = Math.Max(minTranslateX, Math.Min(0, _xOffset));
+        _yOffset = Math.Max(minTranslateY, Math.Min(0, _yOffset));
     }
 }
 
