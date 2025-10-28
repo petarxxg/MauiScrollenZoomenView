@@ -95,6 +95,9 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     {
         if (VirtualView is not ZoomPanCanvas canvas) return;
 
+        // Clamp translation to prevent scrolling outside content bounds
+        ClampTranslation(canvas);
+
         // Access the ContentHost directly
         var contentHost = canvas.ContentHost;
         if (contentHost != null)
@@ -103,6 +106,33 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             contentHost.TranslationX = _translateX;
             contentHost.TranslationY = _translateY;
         }
+    }
+
+    private void ClampTranslation(ZoomPanCanvas canvas)
+    {
+        if (PlatformView == null) return;
+
+        // Get content and viewport dimensions
+        var contentWidth = (float)canvas.ContentWidth;
+        var contentHeight = (float)canvas.ContentHeight;
+        var viewportWidth = PlatformView.Width;
+        var viewportHeight = PlatformView.Height;
+
+        if (contentWidth <= 0 || contentHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0)
+            return;
+
+        // Calculate scaled content dimensions
+        var scaledWidth = contentWidth * _scaleFactor;
+        var scaledHeight = contentHeight * _scaleFactor;
+
+        // Calculate maximum allowed translation
+        // With AnchorX/Y = 0.5, the content is centered, so we need to account for that
+        var maxTranslateX = Math.Max(0, (scaledWidth - viewportWidth) / 2);
+        var maxTranslateY = Math.Max(0, (scaledHeight - viewportHeight) / 2);
+
+        // Clamp translation
+        _translateX = Math.Max(-maxTranslateX, Math.Min(maxTranslateX, _translateX));
+        _translateY = Math.Max(-maxTranslateY, Math.Min(maxTranslateY, _translateY));
     }
 
     private class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener

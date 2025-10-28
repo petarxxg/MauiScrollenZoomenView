@@ -25,6 +25,10 @@ public class ZoomPanCanvas : ContentView
     // Public property for Android Handler to access
     public ContentView ContentHost => _contentHost;
 
+    // Public properties to get content dimensions for boundary checking
+    public double ContentWidth => _canvas.WidthRequest;
+    public double ContentHeight => _canvas.HeightRequest;
+
     // BindableProperty for Tables (now uses PositionableItem base class)
     public static readonly BindableProperty TablesProperty = BindableProperty.Create(
         nameof(Tables),
@@ -183,6 +187,10 @@ public class ZoomPanCanvas : ContentView
             _xOffset *= scaleRatio;
             _yOffset *= scaleRatio;
             _currentScale = newScale;
+
+            // Clamp translation to prevent scrolling outside content bounds
+            ClampTranslation();
+
             _contentHost.Scale = _currentScale;
             _contentHost.TranslationX = _xOffset;
             _contentHost.TranslationY = _yOffset;
@@ -265,43 +273,7 @@ public class ZoomPanCanvas : ContentView
         }
         else
         {
-            // Default-Darstellung
-            var border = new Border
-            {
-                Stroke = Colors.DarkBlue,
-                StrokeThickness = 2,
-                BackgroundColor = Colors.LightBlue,
-                StrokeShape = new RoundRectangle { CornerRadius = 8 },
-                Content = new Label
-                {
-                    Text = item.Name,
-                    HorizontalOptions = LayoutOptions.Center,
-                    VerticalOptions = LayoutOptions.Center,
-                    FontSize = 14,
-                    FontAttributes = FontAttributes.Bold,
-                    TextColor = Colors.DarkBlue
-                }
-            };
-
-            itemView = new ContentView
-            {
-                Content = border
-            };
-
-            // Tap-Gesture nur für Default-Darstellung
-            var tapGesture = new TapGestureRecognizer();
-            tapGesture.Tapped += async (s, e) =>
-            {
-                var window = Application.Current?.Windows.FirstOrDefault();
-                if (window?.Page != null)
-                {
-                    await window.Page.DisplayAlertAsync(
-                        "Item Info",
-                        $"Sie haben {item.Name} ausgewählt.\nPosition: ({item.X:F0}, {item.Y:F0})",
-                        "OK").ConfigureAwait(false);
-                }
-            };
-            itemView.GestureRecognizers.Add(tapGesture);
+            throw new ArgumentNullException();
         }
 
         return itemView;
@@ -327,6 +299,9 @@ public class ZoomPanCanvas : ContentView
             _xOffset *= scaleRatio;
             _yOffset *= scaleRatio;
             _currentScale = newScale;
+
+            // Clamp translation to prevent scrolling outside content bounds
+            ClampTranslation();
 
             // Update immediately
             _contentHost.Scale = _currentScale;
@@ -354,6 +329,10 @@ public class ZoomPanCanvas : ContentView
                 _yOffset += deltaY;
                 _lastPanX = e.TotalX;
                 _lastPanY = e.TotalY;
+
+                // Clamp translation to prevent scrolling outside content bounds
+                ClampTranslation();
+
                 _contentHost.TranslationX = _xOffset;
                 _contentHost.TranslationY = _yOffset;
                 break;
@@ -375,5 +354,30 @@ public class ZoomPanCanvas : ContentView
         _contentHost.Scale = 1.0;
         _contentHost.TranslationX = 0.0;
         _contentHost.TranslationY = 0.0;
+    }
+
+    private void ClampTranslation()
+    {
+        // Get content and viewport dimensions
+        var contentWidth = _canvas.WidthRequest;
+        var contentHeight = _canvas.HeightRequest;
+        var viewportWidth = Width;
+        var viewportHeight = Height;
+
+        if (contentWidth <= 0 || contentHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0)
+            return;
+
+        // Calculate scaled content dimensions
+        var scaledWidth = contentWidth * _currentScale;
+        var scaledHeight = contentHeight * _currentScale;
+
+        // Calculate maximum allowed translation
+        // With AnchorX/Y = 0.5, the content is centered, so we need to account for that
+        var maxTranslateX = Math.Max(0, (scaledWidth - viewportWidth) / 2);
+        var maxTranslateY = Math.Max(0, (scaledHeight - viewportHeight) / 2);
+
+        // Clamp translation
+        _xOffset = Math.Max(-maxTranslateX, Math.Min(maxTranslateX, _xOffset));
+        _yOffset = Math.Max(-maxTranslateY, Math.Min(maxTranslateY, _yOffset));
     }
 }
