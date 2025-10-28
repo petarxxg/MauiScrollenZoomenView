@@ -1,11 +1,12 @@
-using Microsoft.Maui.Handlers;
-using Microsoft.Maui.Platform;
-using TischplanApp.Controls;
-using UIKit;
 using CoreGraphics;
+using Microsoft.Maui.Handlers;
+using Orderlyze.Foundation.Helper.Extensions;
+using SharedControlsModule.PlatformControls;
+using System.Runtime.InteropServices;
+using UIKit;
 using PlatformView = Microsoft.Maui.Platform.ContentView;
 
-namespace TischplanApp.Platforms.iOS.Handlers;
+namespace Orderlyze.Platforms.iOS.Handlers;
 
 public class ZoomPanCanvasHandler : ContentViewHandler
 {
@@ -19,6 +20,12 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     protected override PlatformView CreatePlatformView()
     {
         var view = base.CreatePlatformView();
+
+        // Sync initial scale from VirtualView
+        if (VirtualView is ZoomPanCanvas canvas)
+        {
+            _scaleFactor = (nfloat)canvas.Scale;
+        }
 
         // Create native iOS gesture recognizers
         _pinchGestureRecognizer = new UIPinchGestureRecognizer(OnPinch);
@@ -57,6 +64,12 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     {
         if (gesture.State == UIGestureRecognizerState.Began)
         {
+            // Sync scale from VirtualView at the start of gesture
+            if (VirtualView is ZoomPanCanvas canvas)
+            {
+                _scaleFactor = (nfloat)canvas.Scale;
+            }
+
             _lastScale = _scaleFactor;
         }
         else if (gesture.State == UIGestureRecognizerState.Changed)
@@ -66,13 +79,9 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             var newScale = _lastScale * gesture.Scale;
 
             // Clamp scale
-            newScale = (nfloat)Math.Max(0.1, Math.Min(3.0, newScale));
+            newScale = (NFloat)(Math.Max(ZoomPanCanvas.MinScale, Math.Min(ZoomPanCanvas.MaxScale, newScale)));
 
-            // Bei zentriertem Canvas (Anchor 0.5): Translation proportional skalieren!
-            // Was du gerade siehst, wird einfach größer/kleiner OHNE Verschiebung
-            var scaleRatio = newScale / oldScale;
-            _translateX *= scaleRatio;
-            _translateY *= scaleRatio;
+            // Bei Anchor 0,0 (top-left): Zoom von oben links
             _scaleFactor = newScale;
 
             // Apply transformation on main thread
@@ -87,7 +96,15 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     {
         if (PlatformView == null) return;
 
-        if (gesture.State == UIGestureRecognizerState.Changed)
+        if (gesture.State == UIGestureRecognizerState.Began)
+        {
+            // Sync scale from VirtualView at the start of pan gesture
+            if (VirtualView is ZoomPanCanvas canvas)
+            {
+                _scaleFactor = (nfloat)canvas.Scale;
+            }
+        }
+        else if (gesture.State == UIGestureRecognizerState.Changed)
         {
             // Get translation delta
             var translation = gesture.TranslationInView(PlatformView);
@@ -122,17 +139,18 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             contentHost.TranslationX = (double)_translateX;
             contentHost.TranslationY = (double)_translateY;
         }
+
+        // Update the BindableProperty
+        canvas.SetValue(ZoomPanCanvas.ScaleProperty, (double)_scaleFactor);
     }
 
     private void ClampTranslation(ZoomPanCanvas canvas)
     {
-        if (PlatformView == null) return;
-
-        // Get content and viewport dimensions
+        // Get content and viewport dimensions from the virtual view
         var contentWidth = (nfloat)canvas.ContentWidth;
         var contentHeight = (nfloat)canvas.ContentHeight;
-        var viewportWidth = PlatformView.Bounds.Width;
-        var viewportHeight = PlatformView.Bounds.Height;
+        var viewportWidth = (nfloat)canvas.Width;
+        var viewportHeight = (nfloat)canvas.Height;
 
         if (contentWidth <= 0 || contentHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0)
             return;
@@ -141,13 +159,35 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         var scaledWidth = contentWidth * _scaleFactor;
         var scaledHeight = contentHeight * _scaleFactor;
 
-        // Calculate maximum allowed translation
-        // With AnchorX/Y = 0.5, the content is centered, so we need to account for that
-        var maxTranslateX = (nfloat)Math.Max(0, (scaledWidth - viewportWidth) / 2);
-        var maxTranslateY = (nfloat)Math.Max(0, (scaledHeight - viewportHeight) / 2);
+        // For top-left anchored content (Anchor 0,0):
+        // - Min translation is negative (content scrolls left/up)
+        // - Max translation is 0 (content at top-left)
+        nfloat minTranslateX, minTranslateY;
 
-        // Clamp translation
-        _translateX = (nfloat)Math.Max(-maxTranslateX, Math.Min(maxTranslateX, _translateX));
-        _translateY = (nfloat)Math.Max(-maxTranslateY, Math.Min(maxTranslateY, _translateY));
+        if (scaledWidth <= viewportWidth)
+        {
+            // Content fits in viewport horizontally - no scrolling needed
+            minTranslateX = 0;
+        }
+        else
+        {
+            // Content is larger - allow scrolling to show all content
+            minTranslateX = -(scaledWidth - viewportWidth);
+        }
+
+        if (scaledHeight <= viewportHeight)
+        {
+            // Content fits in viewport vertically - no scrolling needed
+            minTranslateY = 0;
+        }
+        else
+        {
+            // Content is larger - allow scrolling to show all content
+            minTranslateY = -(scaledHeight - viewportHeight);
+        }
+
+        // Clamp translation: min (to show right/bottom edge) <= offset <= 0 (top-left)
+        _translateX = (nfloat)Math.Max(minTranslateX, Math.Min(0, _translateX));
+        _translateY = (nfloat)Math.Max(minTranslateY, Math.Min(0, _translateY));
     }
 }

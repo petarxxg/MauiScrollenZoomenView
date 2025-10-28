@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:controls="clr-namespace:TischplanApp.Controls"
+             xmlns:controls="clr-namespace:SharedControlsModule.PlatformControls"
              xmlns:selectors="clr-namespace:TischplanApp.Selectors"
              x:Class="TischplanApp.MainPage">
 
@@ -63,11 +63,11 @@
                 TextColor="White"
                 Padding="20,10"/>
 
-        <!-- Tischplan mit ItemTemplateSelector -->
+        <!-- Tischplan mit ItemTemplateSelector IsEditMode="{Binding IsEditMode}"-->
         <controls:ZoomPanCanvas Grid.Row="1"
                                Tables="{Binding Items}"
                                ItemTemplateSelector="{StaticResource ItemTemplateSelector}"
-                               IsEditMode="{Binding IsEditMode}"/>
+                                />
     </Grid>
 
 </ContentPage>

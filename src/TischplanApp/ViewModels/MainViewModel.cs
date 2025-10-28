@@ -73,18 +73,18 @@ public class MainViewModel : INotifyPropertyChanged
         Items.Clear();
 
         // Tables
-        Items.Add(new TableModel { Id = 1, Name = "Tisch 1", X = 300, Y = 200, Width = 140, Height = 90 });
-        Items.Add(new TableModel { Id = 2, Name = "Tisch 2", X = 600, Y = 200, Width = 140, Height = 90 });
-        Items.Add(new TableModel { Id = 3, Name = "Tisch 3", X = 900, Y = 200, Width = 140, Height = 90 });
+        Items.Add(new TableModel { Id = 1, Name = "Tisch 1", Xposition = 300, Yposition = 200, Width = 140, Height = 90 });
+        Items.Add(new TableModel { Id = 2, Name = "Tisch 2", Xposition = 600, Yposition = 200, Width = 140, Height = 90 });
+        Items.Add(new TableModel { Id = 3, Name = "Tisch 3", Xposition = 900, Yposition = 200, Width = 140, Height = 90 });
 
         // Boxes
-        Items.Add(new BoxViewModel { Id = 7, Name = "Box A", Content = "Lager", X = 150, Y = 350, Width = 100, Height = 80 });
-        Items.Add(new BoxViewModel { Id = 8, Name = "Box B", Content = "Küche", X = 750, Y = 350, Width = 100, Height = 80 });
+        Items.Add(new BoxViewModel { Id = 7, Name = "Box A", Content = "Lager", Xposition = 150, Yposition = 350, Width = 100, Height = 80 });
+        Items.Add(new BoxViewModel { Id = 8, Name = "Box B", Content = "Küche", Xposition = 750, Yposition = 350, Width = 100, Height = 80 });
 
         // More Tables
-        Items.Add(new TableModel { Id = 4, Name = "Tisch 4", X = 300, Y = 500, Width = 140, Height = 90 });
-        Items.Add(new TableModel { Id = 5, Name = "Tisch 5", X = 600, Y = 500, Width = 140, Height = 90 });
-        Items.Add(new TableModel { Id = 6, Name = "Tisch 6", X = 900, Y = 500, Width = 140, Height = 90 });
+        Items.Add(new TableModel { Id = 4, Name = "Tisch 4", Xposition = 300, Yposition = 500, Width = 140, Height = 90 });
+        Items.Add(new TableModel { Id = 5, Name = "Tisch 5", Xposition = 600, Yposition = 500, Width = 140, Height = 90 });
+        Items.Add(new TableModel { Id = 6, Name = "Tisch 6", Xposition = 900, Yposition = 500, Width = 140, Height = 90 });
     }
 
     #region INotifyPropertyChanged

@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using TischplanApp.Controls;
+using SharedControlsModule.PlatformControls;
 
 namespace TischplanApp;
 
@@ -23,9 +23,9 @@ public static class MauiProgram
             .ConfigureMauiHandlers(handlers =>
             {
 #if ANDROID
-                handlers.AddHandler<ZoomPanCanvas, Platforms.Android.Handlers.ZoomPanCanvasHandler>();
+                handlers.AddHandler<ZoomPanCanvas, Orderlyze.Platforms.Android.Handlers.ZoomPanCanvasHandler>();
 #elif IOS
-                handlers.AddHandler<ZoomPanCanvas, Platforms.iOS.Handlers.ZoomPanCanvasHandler>();
+                handlers.AddHandler<ZoomPanCanvas, Orderlyze.Platforms.iOS.Handlers.ZoomPanCanvasHandler>();
 #endif
             });
 

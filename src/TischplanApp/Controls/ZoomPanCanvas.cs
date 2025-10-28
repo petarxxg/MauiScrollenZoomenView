@@ -1,7 +1,9 @@
-using Microsoft.Maui.Controls.Shapes;
-using TischplanApp.Models;
 
-namespace TischplanApp.Controls;
+
+using Orderlyze.Foundation.Helper.Extensions;
+using Orderlyze.Foundation.Interfaces;
+
+namespace SharedControlsModule.PlatformControls;
 
 /// <summary>
 /// A custom control that provides zoom and pan functionality for a canvas with table elements.
@@ -9,8 +11,8 @@ namespace TischplanApp.Controls;
 /// </summary>
 public class ZoomPanCanvas : ContentView
 {
-    private const double MinScale = 0.1;
-    private const double MaxScale = 3.0;
+    public const double MinScale = 0.4;
+    public const double MaxScale = 1.0;
 
     private readonly Grid _rootGrid;
     private readonly ContentView _contentHost;
@@ -29,23 +31,23 @@ public class ZoomPanCanvas : ContentView
     public double ContentWidth => _canvas.WidthRequest;
     public double ContentHeight => _canvas.HeightRequest;
 
-    // BindableProperty for Tables (now uses PositionableItem base class)
+    // BindableProperty for Tables (now uses IPositionBase base class)
     public static readonly BindableProperty TablesProperty = BindableProperty.Create(
         nameof(Tables),
-        typeof(IEnumerable<PositionableItem>),
+        typeof(IEnumerable<IPositionBase>),
         typeof(ZoomPanCanvas),
-        default(IEnumerable<PositionableItem>),
+        default(IEnumerable<IPositionBase>),
         propertyChanged: OnTablesPropertyChanged);
 
-    public IEnumerable<PositionableItem>? Tables
+    public IEnumerable<IPositionBase>? Tables
     {
-        get => (IEnumerable<PositionableItem>?)GetValue(TablesProperty);
+        get => (IEnumerable<IPositionBase>?)GetValue(TablesProperty);
         set => SetValue(TablesProperty, value);
     }
 
     private static void OnTablesPropertyChanged(BindableObject bindable, object oldValue, object newValue)
     {
-        if (bindable is ZoomPanCanvas canvas && newValue is IEnumerable<PositionableItem> tables)
+        if (bindable is ZoomPanCanvas canvas && newValue is IEnumerable<IPositionBase> tables)
         {
             canvas.LoadTables(tables);
         }
@@ -97,26 +99,52 @@ public class ZoomPanCanvas : ContentView
         }
     }
 
-    // BindableProperty for IsEditMode
-    public static readonly BindableProperty IsEditModeProperty = BindableProperty.Create(
-        nameof(IsEditMode),
-        typeof(bool),
+    // BindableProperty for Scale
+    public static readonly BindableProperty ScaleProperty = BindableProperty.Create(
+        nameof(Scale),
+        typeof(double),
         typeof(ZoomPanCanvas),
-        false,
-        propertyChanged: OnIsEditModePropertyChanged);
+        1.0,
+        BindingMode.TwoWay,
+        propertyChanged: OnScalePropertyChanged);
 
-    public bool IsEditMode
+    public double Scale
     {
-        get => (bool)GetValue(IsEditModeProperty);
-        set => SetValue(IsEditModeProperty, value);
+        get => (double)GetValue(ScaleProperty);
+        set => SetValue(ScaleProperty, value);
     }
 
-    private static void OnIsEditModePropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    private static void OnScalePropertyChanged(BindableObject bindable, object oldValue, object newValue)
     {
-        if (bindable is ZoomPanCanvas canvas && canvas.Tables != null)
+        if (bindable is ZoomPanCanvas canvas && newValue is double scale)
         {
-            // Reload tables to apply/remove edit mode gestures
-            canvas.LoadTables(canvas.Tables);
+            canvas.SetScale(scale);
+        }
+    }
+
+    private void SetScale(double scale)
+    {
+        // Clamp scale
+        scale = Math.Max(MinScale, Math.Min(MaxScale, scale));
+
+        if (Math.Abs(_currentScale - scale) < 0.001)
+            return;
+
+        _currentScale = scale;
+        _startScale = scale;
+
+        // Apply to UI
+        _contentHost.Scale = _currentScale;
+
+        // Clamp translation after scale change
+        ClampTranslation();
+        _contentHost.TranslationX = _xOffset;
+        _contentHost.TranslationY = _yOffset;
+
+        // Update the property without triggering the changed event again
+        if (Math.Abs(Scale - scale) > 0.001)
+        {
+            SetValue(ScaleProperty, scale);
         }
     }
 
@@ -132,10 +160,10 @@ public class ZoomPanCanvas : ContentView
         _contentHost = new ContentView
         {
             Content = _canvas,
-            AnchorX = 0.5,  // Zentriert
-            AnchorY = 0.5,  // Zentriert
-            HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions = LayoutOptions.Center
+            AnchorX = 0,  // Links
+            AnchorY = 0,  // Oben
+            HorizontalOptions = LayoutOptions.Start,
+            VerticalOptions = LayoutOptions.Start
         };
 
         // Root grid
@@ -205,10 +233,7 @@ public class ZoomPanCanvas : ContentView
 
         if (Math.Abs(newScale - oldScale) > 0.001)
         {
-            // Translation proportional skalieren - was du siehst bleibt gleich!
-            var scaleRatio = newScale / oldScale;
-            _xOffset *= scaleRatio;
-            _yOffset *= scaleRatio;
+            // Bei Anchor 0,0 (top-left): Zoom von oben links
             _currentScale = newScale;
 
             // Clamp translation to prevent scrolling outside content bounds
@@ -217,12 +242,15 @@ public class ZoomPanCanvas : ContentView
             _contentHost.Scale = _currentScale;
             _contentHost.TranslationX = _xOffset;
             _contentHost.TranslationY = _yOffset;
+
+            // Update BindableProperty
+            SetValue(ScaleProperty, _currentScale);
         }
         e.Handled = true;
     }
 #endif
 
-    public void LoadTables(IEnumerable<PositionableItem> tables)
+    public void LoadTables(IEnumerable<IPositionBase> tables)
     {
         _canvas.Children.Clear();
 
@@ -238,12 +266,12 @@ public class ZoomPanCanvas : ContentView
         foreach (var item in tables)
         {
             var itemView = CreateItemView(item);
-            AbsoluteLayout.SetLayoutBounds(itemView, new Rect(item.X, item.Y, item.Width, item.Height));
+            AbsoluteLayout.SetLayoutBounds(itemView, new Rect(item.Xposition.ToDouble(), item.Yposition.ToDouble(), item.Width.ToDouble(), item.Height.ToDouble()));
             _canvas.Children.Add(itemView);
 
             // Berechne die maximalen Koordinaten (Position + Größe)
-            maxX = Math.Max(maxX, item.X + item.Width);
-            maxY = Math.Max(maxY, item.Y + item.Height);
+            maxX = Math.Max(maxX, (item.Xposition + item.Width).ToDouble());
+            maxY = Math.Max(maxY, (item.Yposition + item.Height).ToDouble());
         }
 
         // Setze die Canvas-Größe mit etwas Padding (z.B. 50 Pixel Rand)
@@ -252,7 +280,7 @@ public class ZoomPanCanvas : ContentView
         _canvas.HeightRequest = maxY + padding;
     }
 
-    private ContentView CreateItemView(PositionableItem item)
+    private ContentView CreateItemView(IPositionBase item)
     {
         ContentView itemView;
         DataTemplate? template = null;
@@ -279,13 +307,6 @@ public class ZoomPanCanvas : ContentView
                     Content = view
                 };
             }
-            else if (content is ViewCell viewCell)
-            {
-                itemView = new ContentView
-                {
-                    Content = viewCell.View
-                };
-            }
             else
             {
                 throw new InvalidOperationException("Template must create a View or ViewCell");
@@ -293,23 +314,6 @@ public class ZoomPanCanvas : ContentView
 
             // Setze BindingContext auf das Item
             itemView.BindingContext = item;
-
-            // Apply scale from item
-            itemView.Scale = item.Scale;
-
-            // Add edit mode gestures if enabled
-            if (IsEditMode)
-            {
-                // Drag gesture for moving items
-                var panGesture = new PanGestureRecognizer();
-                panGesture.PanUpdated += (s, e) => OnItemPanUpdated(s, e, item, itemView);
-                itemView.GestureRecognizers.Add(panGesture);
-
-                // Pinch gesture for scaling items
-                var pinchGesture = new PinchGestureRecognizer();
-                pinchGesture.PinchUpdated += (s, e) => OnItemPinchUpdated(s, e, item, itemView);
-                itemView.GestureRecognizers.Add(pinchGesture);
-            }
         }
         else
         {
@@ -334,10 +338,8 @@ public class ZoomPanCanvas : ContentView
 
             if (Math.Abs(newScale - oldScale) < 0.001) return;
 
-            // Translation proportional skalieren - was du siehst bleibt gleich!
-            var scaleRatio = newScale / oldScale;
-            _xOffset *= scaleRatio;
-            _yOffset *= scaleRatio;
+            // Bei Anchor 0,0 (top-left): Zoom von oben links
+            // Translation muss angepasst werden damit der sichtbare Bereich erhalten bleibt
             _currentScale = newScale;
 
             // Clamp translation to prevent scrolling outside content bounds
@@ -347,6 +349,9 @@ public class ZoomPanCanvas : ContentView
             _contentHost.Scale = _currentScale;
             _contentHost.TranslationX = _xOffset;
             _contentHost.TranslationY = _yOffset;
+
+            // Update BindableProperty
+            SetValue(ScaleProperty, _currentScale);
         }
     }
 
@@ -396,66 +401,6 @@ public class ZoomPanCanvas : ContentView
         _contentHost.TranslationY = 0.0;
     }
 
-    // Item-specific gesture handlers
-    private double _itemStartX = 0;
-    private double _itemStartY = 0;
-
-    private void OnItemPanUpdated(object? sender, PanUpdatedEventArgs e, PositionableItem item, ContentView itemView)
-    {
-        if (!IsEditMode) return;
-
-        switch (e.StatusType)
-        {
-            case GestureStatus.Started:
-                _itemStartX = item.X;
-                _itemStartY = item.Y;
-                break;
-
-            case GestureStatus.Running:
-                // Account for current canvas scale when calculating position
-                var adjustedDeltaX = e.TotalX / _currentScale;
-                var adjustedDeltaY = e.TotalY / _currentScale;
-
-                item.X = _itemStartX + adjustedDeltaX;
-                item.Y = _itemStartY + adjustedDeltaY;
-
-                // Update layout position
-                AbsoluteLayout.SetLayoutBounds(itemView, new Rect(item.X, item.Y, item.Width, item.Height));
-                break;
-
-            case GestureStatus.Completed:
-            case GestureStatus.Canceled:
-                break;
-        }
-    }
-
-    private double _itemStartScale = 1.0;
-
-    private void OnItemPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e, PositionableItem item, ContentView itemView)
-    {
-        if (!IsEditMode) return;
-
-        switch (e.Status)
-        {
-            case GestureStatus.Started:
-                _itemStartScale = item.Scale;
-                break;
-
-            case GestureStatus.Running:
-                var newScale = _itemStartScale * e.Scale;
-                // Limit scale between 0.5 and 3.0 for items
-                newScale = Math.Max(0.5, Math.Min(3.0, newScale));
-
-                item.Scale = newScale;
-                itemView.Scale = newScale;
-                break;
-
-            case GestureStatus.Completed:
-            case GestureStatus.Canceled:
-                break;
-        }
-    }
-
     private void ClampTranslation()
     {
         // Get content and viewport dimensions
@@ -471,13 +416,36 @@ public class ZoomPanCanvas : ContentView
         var scaledWidth = contentWidth * _currentScale;
         var scaledHeight = contentHeight * _currentScale;
 
-        // Calculate maximum allowed translation
-        // With AnchorX/Y = 0.5, the content is centered, so we need to account for that
-        var maxTranslateX = Math.Max(0, (scaledWidth - viewportWidth) / 2);
-        var maxTranslateY = Math.Max(0, (scaledHeight - viewportHeight) / 2);
+        // For top-left anchored content:
+        // - Min translation is negative (content scrolls left/up)
+        // - Max translation is 0 (content at top-left)
 
-        // Clamp translation
-        _xOffset = Math.Max(-maxTranslateX, Math.Min(maxTranslateX, _xOffset));
-        _yOffset = Math.Max(-maxTranslateY, Math.Min(maxTranslateY, _yOffset));
+        double minTranslateX, minTranslateY;
+
+        if (scaledWidth <= viewportWidth)
+        {
+            // Content fits in viewport horizontally - no scrolling needed
+            minTranslateX = 0;
+        }
+        else
+        {
+            // Content is larger - allow scrolling to show all content
+            minTranslateX = -(scaledWidth - viewportWidth);
+        }
+
+        if (scaledHeight <= viewportHeight)
+        {
+            // Content fits in viewport vertically - no scrolling needed
+            minTranslateY = 0;
+        }
+        else
+        {
+            // Content is larger - allow scrolling to show all content
+            minTranslateY = -(scaledHeight - viewportHeight);
+        }
+
+        // Clamp translation: min (to show right/bottom edge) <= offset <= 0 (top-left)
+        _xOffset = Math.Max(minTranslateX, Math.Min(0, _xOffset));
+        _yOffset = Math.Max(minTranslateY, Math.Min(0, _yOffset));
     }
 }

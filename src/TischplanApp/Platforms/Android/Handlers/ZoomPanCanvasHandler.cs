@@ -1,10 +1,11 @@
 using Android.Views;
 using Microsoft.Maui.Handlers;
 using Microsoft.Maui.Platform;
-using TischplanApp.Controls;
+using Orderlyze.Foundation.Helper.Extensions;
+using SharedControlsModule.PlatformControls;
 using AView = Android.Views.View;
 
-namespace TischplanApp.Platforms.Android.Handlers;
+namespace Orderlyze.Platforms.Android.Handlers;
 
 public class ZoomPanCanvasHandler : ContentViewHandler
 {
@@ -30,6 +31,12 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     protected override void ConnectHandler(ContentViewGroup platformView)
     {
         base.ConnectHandler(platformView);
+
+        // Sync initial scale from VirtualView
+        if (VirtualView is ZoomPanCanvas canvas)
+        {
+            _scaleFactor = (float)canvas.Scale;
+        }
 
         // Override touch handling
         platformView.Touch += OnTouch;
@@ -73,14 +80,11 @@ public class ZoomPanCanvasHandler : ContentViewHandler
                 var newScale = oldScale * zoomFactor;
 
                 // Clamp scale
-                newScale = Math.Max(0.1f, Math.Min(3.0f, newScale));
+                newScale = Math.Max(ZoomPanCanvas.MinScale.ToFloat(), Math.Min(ZoomPanCanvas.MaxScale.ToFloat(), newScale));
 
                 if (Math.Abs(newScale - oldScale) > 0.001f)
                 {
-                    // Proportional translation scaling
-                    var scaleRatio = newScale / oldScale;
-                    _translateX *= scaleRatio;
-                    _translateY *= scaleRatio;
+                    // Bei Anchor 0,0 (top-left): Zoom von oben links
                     _scaleFactor = newScale;
 
                     ApplyTransformation();
@@ -106,17 +110,18 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             contentHost.TranslationX = _translateX;
             contentHost.TranslationY = _translateY;
         }
+
+        // Update the BindableProperty
+        canvas.SetValue(ZoomPanCanvas.ScaleProperty, (double)_scaleFactor);
     }
 
     private void ClampTranslation(ZoomPanCanvas canvas)
     {
-        if (PlatformView == null) return;
-
-        // Get content and viewport dimensions
+        // Get content and viewport dimensions from the virtual view
         var contentWidth = (float)canvas.ContentWidth;
         var contentHeight = (float)canvas.ContentHeight;
-        var viewportWidth = PlatformView.Width;
-        var viewportHeight = PlatformView.Height;
+        var viewportWidth = (float)canvas.Width;
+        var viewportHeight = (float)canvas.Height;
 
         if (contentWidth <= 0 || contentHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0)
             return;
@@ -125,14 +130,36 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         var scaledWidth = contentWidth * _scaleFactor;
         var scaledHeight = contentHeight * _scaleFactor;
 
-        // Calculate maximum allowed translation
-        // With AnchorX/Y = 0.5, the content is centered, so we need to account for that
-        var maxTranslateX = Math.Max(0, (scaledWidth - viewportWidth) / 2);
-        var maxTranslateY = Math.Max(0, (scaledHeight - viewportHeight) / 2);
+        // For top-left anchored content (Anchor 0,0):
+        // - Min translation is negative (content scrolls left/up)
+        // - Max translation is 0 (content at top-left)
+        float minTranslateX, minTranslateY;
 
-        // Clamp translation
-        _translateX = Math.Max(-maxTranslateX, Math.Min(maxTranslateX, _translateX));
-        _translateY = Math.Max(-maxTranslateY, Math.Min(maxTranslateY, _translateY));
+        if (scaledWidth <= viewportWidth)
+        {
+            // Content fits in viewport horizontally - no scrolling needed
+            minTranslateX = 0;
+        }
+        else
+        {
+            // Content is larger - allow scrolling to show all content
+            minTranslateX = -(scaledWidth - viewportWidth);
+        }
+
+        if (scaledHeight <= viewportHeight)
+        {
+            // Content fits in viewport vertically - no scrolling needed
+            minTranslateY = 0;
+        }
+        else
+        {
+            // Content is larger - allow scrolling to show all content
+            minTranslateY = -(scaledHeight - viewportHeight);
+        }
+
+        // Clamp translation: min (to show right/bottom edge) <= offset <= 0 (top-left)
+        _translateX = Math.Max(minTranslateX, Math.Min(0, _translateX));
+        _translateY = Math.Max(minTranslateY, Math.Min(0, _translateY));
     }
 
     private class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener
@@ -147,6 +174,12 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
         public override bool OnScaleBegin(ScaleGestureDetector? detector)
         {
+            // Sync scale from VirtualView at the start of gesture
+            if (_handler.VirtualView is ZoomPanCanvas canvas)
+            {
+                _handler._scaleFactor = (float)canvas.Scale;
+            }
+
             _startScale = _handler._scaleFactor;
             _handler._lastFocusX = detector?.FocusX ?? 0;
             _handler._lastFocusY = detector?.FocusY ?? 0;
@@ -163,13 +196,9 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             var newScale = oldScale * scaleDelta;
 
             // Clamp scale
-            newScale = Math.Max(0.1f, Math.Min(3.0f, newScale));
+            newScale = Math.Max(ZoomPanCanvas.MinScale.ToFloat(), Math.Min(ZoomPanCanvas.MaxScale.ToFloat(), newScale));
 
-            // Bei zentriertem Canvas (Anchor 0.5): Translation proportional skalieren!
-            // Was du gerade siehst, wird einfach größer/kleiner OHNE Verschiebung
-            var scaleRatio = newScale / oldScale;
-            _handler._translateX *= scaleRatio;
-            _handler._translateY *= scaleRatio;
+            // Bei Anchor 0,0 (top-left): Zoom von oben links
             _handler._scaleFactor = newScale;
 
             // Apply transformation on UI thread
@@ -185,6 +214,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     private class PanListener : GestureDetector.SimpleOnGestureListener
     {
         private readonly ZoomPanCanvasHandler _handler;
+        private bool _hasCheckedScale = false;
 
         public PanListener(ZoomPanCanvasHandler handler)
         {
@@ -193,6 +223,17 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
         public override bool OnScroll(MotionEvent? e1, MotionEvent? e2, float distanceX, float distanceY)
         {
+            // Sync scale from VirtualView if not checked yet in this pan session
+            if (!_hasCheckedScale && _handler.VirtualView is ZoomPanCanvas canvas)
+            {
+                var currentScale = (float)canvas.Scale;
+                if (Math.Abs(_handler._scaleFactor - currentScale) > 0.001f)
+                {
+                    _handler._scaleFactor = currentScale;
+                }
+                _hasCheckedScale = true;
+            }
+
             // Update translation (note: distance is opposite direction)
             _handler._translateX -= distanceX;
             _handler._translateY -= distanceY;
@@ -204,6 +245,13 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             });
 
             return true;
+        }
+
+        public override bool OnDown(MotionEvent? e)
+        {
+            // Reset flag when new touch starts
+            _hasCheckedScale = false;
+            return base.OnDown(e);
         }
     }
 }
