@@ -51,8 +51,23 @@
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <!-- Tischplan mit ItemTemplateSelector -->
-    <controls:ZoomPanCanvas Tables="{Binding Items}"
-                           ItemTemplateSelector="{StaticResource ItemTemplateSelector}"/>
+    <!-- Main Layout with Edit Mode Button -->
+    <Grid RowDefinitions="Auto,*">
+        <!-- Edit Mode Toggle Button -->
+        <Button Grid.Row="0"
+                Text="{Binding EditModeText}"
+                Clicked="OnEditModeClicked"
+                Margin="10"
+                HorizontalOptions="Start"
+                BackgroundColor="#2196F3"
+                TextColor="White"
+                Padding="20,10"/>
+
+        <!-- Tischplan mit ItemTemplateSelector -->
+        <controls:ZoomPanCanvas Grid.Row="1"
+                               Tables="{Binding Items}"
+                               ItemTemplateSelector="{StaticResource ItemTemplateSelector}"
+                               IsEditMode="{Binding IsEditMode}"/>
+    </Grid>
 
 </ContentPage>

@@ -11,6 +11,7 @@ namespace TischplanApp.ViewModels;
 public class MainViewModel : INotifyPropertyChanged
 {
     private ObservableCollection<PositionableItem> _items;
+    private bool _isEditMode;
 
     public MainViewModel()
     {
@@ -32,6 +33,36 @@ public class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged();
             }
         }
+    }
+
+    /// <summary>
+    /// Indicates whether the canvas is in edit mode (allows dragging and resizing items).
+    /// </summary>
+    public bool IsEditMode
+    {
+        get => _isEditMode;
+        set
+        {
+            if (_isEditMode != value)
+            {
+                _isEditMode = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EditModeText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Text to display on the edit mode toggle button.
+    /// </summary>
+    public string EditModeText => IsEditMode ? "Ansicht-Modus" : "Bearbeitungs-Modus";
+
+    /// <summary>
+    /// Toggles the edit mode on/off.
+    /// </summary>
+    public void ToggleEditMode()
+    {
+        IsEditMode = !IsEditMode;
     }
 
     /// <summary>

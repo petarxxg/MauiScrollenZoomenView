@@ -97,6 +97,29 @@ public class ZoomPanCanvas : ContentView
         }
     }
 
+    // BindableProperty for IsEditMode
+    public static readonly BindableProperty IsEditModeProperty = BindableProperty.Create(
+        nameof(IsEditMode),
+        typeof(bool),
+        typeof(ZoomPanCanvas),
+        false,
+        propertyChanged: OnIsEditModePropertyChanged);
+
+    public bool IsEditMode
+    {
+        get => (bool)GetValue(IsEditModeProperty);
+        set => SetValue(IsEditModeProperty, value);
+    }
+
+    private static void OnIsEditModePropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas && canvas.Tables != null)
+        {
+            // Reload tables to apply/remove edit mode gestures
+            canvas.LoadTables(canvas.Tables);
+        }
+    }
+
     public ZoomPanCanvas()
     {
         // Create the canvas
@@ -270,6 +293,23 @@ public class ZoomPanCanvas : ContentView
 
             // Setze BindingContext auf das Item
             itemView.BindingContext = item;
+
+            // Apply scale from item
+            itemView.Scale = item.Scale;
+
+            // Add edit mode gestures if enabled
+            if (IsEditMode)
+            {
+                // Drag gesture for moving items
+                var panGesture = new PanGestureRecognizer();
+                panGesture.PanUpdated += (s, e) => OnItemPanUpdated(s, e, item, itemView);
+                itemView.GestureRecognizers.Add(panGesture);
+
+                // Pinch gesture for scaling items
+                var pinchGesture = new PinchGestureRecognizer();
+                pinchGesture.PinchUpdated += (s, e) => OnItemPinchUpdated(s, e, item, itemView);
+                itemView.GestureRecognizers.Add(pinchGesture);
+            }
         }
         else
         {
@@ -354,6 +394,66 @@ public class ZoomPanCanvas : ContentView
         _contentHost.Scale = 1.0;
         _contentHost.TranslationX = 0.0;
         _contentHost.TranslationY = 0.0;
+    }
+
+    // Item-specific gesture handlers
+    private double _itemStartX = 0;
+    private double _itemStartY = 0;
+
+    private void OnItemPanUpdated(object? sender, PanUpdatedEventArgs e, PositionableItem item, ContentView itemView)
+    {
+        if (!IsEditMode) return;
+
+        switch (e.StatusType)
+        {
+            case GestureStatus.Started:
+                _itemStartX = item.X;
+                _itemStartY = item.Y;
+                break;
+
+            case GestureStatus.Running:
+                // Account for current canvas scale when calculating position
+                var adjustedDeltaX = e.TotalX / _currentScale;
+                var adjustedDeltaY = e.TotalY / _currentScale;
+
+                item.X = _itemStartX + adjustedDeltaX;
+                item.Y = _itemStartY + adjustedDeltaY;
+
+                // Update layout position
+                AbsoluteLayout.SetLayoutBounds(itemView, new Rect(item.X, item.Y, item.Width, item.Height));
+                break;
+
+            case GestureStatus.Completed:
+            case GestureStatus.Canceled:
+                break;
+        }
+    }
+
+    private double _itemStartScale = 1.0;
+
+    private void OnItemPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e, PositionableItem item, ContentView itemView)
+    {
+        if (!IsEditMode) return;
+
+        switch (e.Status)
+        {
+            case GestureStatus.Started:
+                _itemStartScale = item.Scale;
+                break;
+
+            case GestureStatus.Running:
+                var newScale = _itemStartScale * e.Scale;
+                // Limit scale between 0.5 and 3.0 for items
+                newScale = Math.Max(0.5, Math.Min(3.0, newScale));
+
+                item.Scale = newScale;
+                itemView.Scale = newScale;
+                break;
+
+            case GestureStatus.Completed:
+            case GestureStatus.Canceled:
+                break;
+        }
     }
 
     private void ClampTranslation()

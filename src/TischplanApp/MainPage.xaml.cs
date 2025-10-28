@@ -12,4 +12,12 @@ public partial class MainPage : ContentPage
         InitializeComponent();
         BindingContext = new MainViewModel();
     }
+
+    private void OnEditModeClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is MainViewModel viewModel)
+        {
+            viewModel.ToggleEditMode();
+        }
+    }
 }
