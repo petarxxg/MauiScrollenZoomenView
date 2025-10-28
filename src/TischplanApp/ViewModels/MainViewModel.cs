@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using TischplanApp.Models;
 
 namespace TischplanApp.ViewModels;
@@ -17,6 +18,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         _items = new ObservableCollection<PositionableItem>();
         LoadSampleItems();
+        ItemTappedCommand = new Command<object>(OnItemTapped);
     }
 
     /// <summary>
@@ -58,11 +60,30 @@ public class MainViewModel : INotifyPropertyChanged
     public string EditModeText => IsEditMode ? "Ansicht-Modus" : "Bearbeitungs-Modus";
 
     /// <summary>
+    /// Command that is executed when an item is tapped.
+    /// </summary>
+    public ICommand ItemTappedCommand { get; }
+
+    /// <summary>
     /// Toggles the edit mode on/off.
     /// </summary>
     public void ToggleEditMode()
     {
         IsEditMode = !IsEditMode;
+    }
+
+    /// <summary>
+    /// Handles item tapped event and displays item position.
+    /// </summary>
+    private async void OnItemTapped(object item)
+    {
+        if (item is PositionableItem posItem)
+        {
+            await Application.Current?.MainPage?.DisplayAlert(
+                "Item Info",
+                $"Name: {posItem.Name}\nX: {posItem.Xposition}\nY: {posItem.Yposition}\nWidth: {posItem.Width}\nHeight: {posItem.Height}",
+                "OK");
+        }
     }
 
     /// <summary>

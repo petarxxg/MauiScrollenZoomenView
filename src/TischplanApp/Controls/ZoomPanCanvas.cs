@@ -23,6 +23,7 @@ public class ZoomPanCanvas : ContentView
     private double _xOffset = 0.0;
     private double _yOffset = 0.0;
     private bool _isInitialized = false;
+    private bool _isPinching = false;
 
     // Public property for Android Handler to access
     public ContentView ContentHost => _contentHost;
@@ -145,6 +146,19 @@ public class ZoomPanCanvas : ContentView
         }
     }
 
+    // BindableProperty for ItemTappedCommand
+    public static readonly BindableProperty ItemTappedCommandProperty = BindableProperty.Create(
+        nameof(ItemTappedCommand),
+        typeof(System.Windows.Input.ICommand),
+        typeof(ZoomPanCanvas),
+        null);
+
+    public System.Windows.Input.ICommand? ItemTappedCommand
+    {
+        get => (System.Windows.Input.ICommand?)GetValue(ItemTappedCommandProperty);
+        set => SetValue(ItemTappedCommandProperty, value);
+    }
+
     private void SetScale(double scale)
     {
         // Clamp scale
@@ -256,13 +270,14 @@ public class ZoomPanCanvas : ContentView
 
         if (Math.Abs(newScale - oldScale) > 0.001)
         {
-            // Bei Anchor 0,0 (top-left): Zoom von oben links
+            // Bei Anchor 0,0 (top-left): Zoom erfolgt von oben links
             _currentScale = newScale;
 
-            // Clamp translation to prevent scrolling outside content bounds
-            ClampTranslation();
-
+            // Update scale
             _contentHost.Scale = _currentScale;
+
+            // Clamp translation after zoom
+            ClampTranslation();
             _contentHost.TranslationX = _xOffset;
             _contentHost.TranslationY = _yOffset;
 
@@ -338,6 +353,14 @@ public class ZoomPanCanvas : ContentView
             // Setze BindingContext auf das Item
             itemView.BindingContext = item;
 
+            // Add tap gesture for item tapped command
+            if (ItemTappedCommand != null)
+            {
+                var tapGesture = new TapGestureRecognizer();
+                tapGesture.Tapped += (s, e) => OnItemTapped(item);
+                itemView.GestureRecognizers.Add(tapGesture);
+            }
+
             // Add edit mode gestures if enabled
             if (IsEditMode)
             {
@@ -345,11 +368,6 @@ public class ZoomPanCanvas : ContentView
                 var panGesture = new PanGestureRecognizer();
                 panGesture.PanUpdated += (s, e) => OnItemPanUpdated(s, e, item, itemView);
                 itemView.GestureRecognizers.Add(panGesture);
-
-                // Pinch gesture for scaling items
-                var pinchGesture = new PinchGestureRecognizer();
-                pinchGesture.PinchUpdated += (s, e) => OnItemPinchUpdated(s, e, item, itemView);
-                itemView.GestureRecognizers.Add(pinchGesture);
             }
         }
         else
@@ -364,6 +382,7 @@ public class ZoomPanCanvas : ContentView
     {
         if (e.Status == GestureStatus.Started)
         {
+            _isPinching = true;
             _startScale = _currentScale;
         }
         else if (e.Status == GestureStatus.Running)
@@ -375,20 +394,24 @@ public class ZoomPanCanvas : ContentView
 
             if (Math.Abs(newScale - oldScale) < 0.001) return;
 
-            // Bei Anchor 0,0 (top-left): Zoom von oben links
-            // Translation muss angepasst werden damit der sichtbare Bereich erhalten bleibt
+            // Bei Anchor 0,0 (top-left): Zoom erfolgt von oben links
+            // Translation wird NICHT angepasst während des Zooms
             _currentScale = newScale;
-
-            // Clamp translation to prevent scrolling outside content bounds
-            ClampTranslation();
 
             // Update immediately
             _contentHost.Scale = _currentScale;
-            _contentHost.TranslationX = _xOffset;
-            _contentHost.TranslationY = _yOffset;
 
             // Update BindableProperty
             SetValue(ScaleProperty, _currentScale);
+        }
+        else if (e.Status == GestureStatus.Completed || e.Status == GestureStatus.Canceled)
+        {
+            _isPinching = false;
+
+            // Clamp translation nur NACH dem Zoom
+            ClampTranslation();
+            _contentHost.TranslationX = _xOffset;
+            _contentHost.TranslationY = _yOffset;
         }
     }
 
@@ -397,6 +420,10 @@ public class ZoomPanCanvas : ContentView
 
     private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
     {
+        // Ignore pan gestures while pinching
+        if (_isPinching)
+            return;
+
         switch (e.StatusType)
         {
             case GestureStatus.Started:
@@ -438,6 +465,15 @@ public class ZoomPanCanvas : ContentView
         _contentHost.TranslationY = 0.0;
     }
 
+    // Item tap handler
+    private void OnItemTapped(IPositionBase item)
+    {
+        if (ItemTappedCommand?.CanExecute(item) == true)
+        {
+            ItemTappedCommand.Execute(item);
+        }
+    }
+
     // Item-specific gesture handlers
     private double _itemStartX = 0;
     private double _itemStartY = 0;
@@ -464,32 +500,6 @@ public class ZoomPanCanvas : ContentView
 
                 // Update layout position
                 AbsoluteLayout.SetLayoutBounds(itemView, new Rect(newX, newY, item.Width.ToDouble(), item.Height.ToDouble()));
-                break;
-
-            case GestureStatus.Completed:
-            case GestureStatus.Canceled:
-                break;
-        }
-    }
-
-    private double _itemStartScale = 1.0;
-
-    private void OnItemPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e, IPositionBase item, ContentView itemView)
-    {
-        if (!IsEditMode) return;
-
-        switch (e.Status)
-        {
-            case GestureStatus.Started:
-                _itemStartScale = itemView.Scale;
-                break;
-
-            case GestureStatus.Running:
-                var newScale = _itemStartScale * e.Scale;
-                // Limit scale between 0.5 and 3.0 for items
-                newScale = Math.Max(0.5, Math.Min(3.0, newScale));
-
-                itemView.Scale = newScale;
                 break;
 
             case GestureStatus.Completed:
