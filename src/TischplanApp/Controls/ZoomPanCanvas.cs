@@ -673,37 +673,38 @@ public class ZoomPanCanvas : ContentView
         var scaledWidth = contentWidth * _currentScale;
         var scaledHeight = contentHeight * _currentScale;
 
-        // For top-left anchored content:
-        // - Min translation is negative (content scrolls left/up)
-        // - Max translation is 0 (content at top-left)
-
-        double minTranslateX, minTranslateY;
+        // For top-left anchored content (Anchor 0,0):
+        double minTranslateX, maxTranslateX, minTranslateY, maxTranslateY;
 
         if (scaledWidth <= viewportWidth)
         {
-            // Content fits in viewport horizontally - no scrolling needed
-            minTranslateX = 0;
+            // Content fits in viewport horizontally - allow positioning within viewport
+            minTranslateX = 0;  // Content can be at left edge
+            maxTranslateX = viewportWidth - scaledWidth;  // Content can be at right edge
         }
         else
         {
             // Content is larger - allow scrolling to show all content
-            minTranslateX = -(scaledWidth - viewportWidth);
+            minTranslateX = -(scaledWidth - viewportWidth);  // Show right edge
+            maxTranslateX = 0;  // Show left edge
         }
 
         if (scaledHeight <= viewportHeight)
         {
-            // Content fits in viewport vertically - no scrolling needed
-            minTranslateY = 0;
+            // Content fits in viewport vertically - allow positioning within viewport
+            minTranslateY = 0;  // Content can be at top edge
+            maxTranslateY = viewportHeight - scaledHeight;  // Content can be at bottom edge
         }
         else
         {
             // Content is larger - allow scrolling to show all content
-            minTranslateY = -(scaledHeight - viewportHeight);
+            minTranslateY = -(scaledHeight - viewportHeight);  // Show bottom edge
+            maxTranslateY = 0;  // Show top edge
         }
 
-        // Clamp translation: min (to show right/bottom edge) <= offset <= 0 (top-left)
-        _xOffset = Math.Max(minTranslateX, Math.Min(0, _xOffset));
-        _yOffset = Math.Max(minTranslateY, Math.Min(0, _yOffset));
+        // Clamp translation to keep content within viewport
+        _xOffset = Math.Max(minTranslateX, Math.Min(maxTranslateX, _xOffset));
+        _yOffset = Math.Max(minTranslateY, Math.Min(maxTranslateY, _yOffset));
     }
 }
 
