@@ -365,7 +365,7 @@ public class ZoomPanCanvas : ContentView
             if (IsEditMode)
             {
                 // Drag gesture for moving items
-                var panGesture = new PanGestureRecognizer();
+                var panGesture = new CorrectedPanGestureRecognizer();
                 panGesture.PanUpdated += (s, e) => OnItemPanUpdated(s, e, item, itemView);
                 itemView.GestureRecognizers.Add(panGesture);
             }
