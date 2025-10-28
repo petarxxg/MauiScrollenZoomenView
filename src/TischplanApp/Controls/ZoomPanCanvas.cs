@@ -159,6 +159,50 @@ public class ZoomPanCanvas : ContentView
         set => SetValue(ItemTappedCommandProperty, value);
     }
 
+    // BindableProperty for CanvasBackgroundColor
+    public static readonly BindableProperty CanvasBackgroundColorProperty = BindableProperty.Create(
+        nameof(CanvasBackgroundColor),
+        typeof(Color),
+        typeof(ZoomPanCanvas),
+        Colors.White,
+        propertyChanged: OnCanvasBackgroundColorPropertyChanged);
+
+    public Color CanvasBackgroundColor
+    {
+        get => (Color)GetValue(CanvasBackgroundColorProperty);
+        set => SetValue(CanvasBackgroundColorProperty, value);
+    }
+
+    private static void OnCanvasBackgroundColorPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas && newValue is Color color)
+        {
+            canvas._canvas.BackgroundColor = color;
+        }
+    }
+
+    // BindableProperty for RootBackgroundColor
+    public static readonly BindableProperty RootBackgroundColorProperty = BindableProperty.Create(
+        nameof(RootBackgroundColor),
+        typeof(Color),
+        typeof(ZoomPanCanvas),
+        Colors.LightGray,
+        propertyChanged: OnRootBackgroundColorPropertyChanged);
+
+    public Color RootBackgroundColor
+    {
+        get => (Color)GetValue(RootBackgroundColorProperty);
+        set => SetValue(RootBackgroundColorProperty, value);
+    }
+
+    private static void OnRootBackgroundColorPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas && newValue is Color color)
+        {
+            canvas._rootGrid.BackgroundColor = color;
+        }
+    }
+
     private void SetScale(double scale)
     {
         // Clamp scale
@@ -190,7 +234,7 @@ public class ZoomPanCanvas : ContentView
         // Create the canvas
         _canvas = new AbsoluteLayout
         {
-            BackgroundColor = Colors.White
+            BackgroundColor = CanvasBackgroundColor
         };
 
         // Content host that will be transformed
@@ -206,7 +250,7 @@ public class ZoomPanCanvas : ContentView
         // Root grid
         _rootGrid = new Grid
         {
-            BackgroundColor = Colors.LightGray,
+            BackgroundColor = RootBackgroundColor,
             Children = { _contentHost }
         };
 
