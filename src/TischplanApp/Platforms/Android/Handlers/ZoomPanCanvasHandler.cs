@@ -16,6 +16,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     private float _translateY = 0f;
     private float _lastFocusX = 0f;
     private float _lastFocusY = 0f;
+    private bool _isScaling = false;
 
     protected override ContentViewGroup CreatePlatformView()
     {
@@ -95,20 +96,23 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         }
     }
 
-    private void ApplyTransformation()
+    private void ApplyTransformation(bool updateTranslation = true)
     {
         if (VirtualView is not ZoomPanCanvas canvas) return;
-
-        // Clamp translation to prevent scrolling outside content bounds
-        ClampTranslation(canvas);
 
         // Access the ContentHost directly
         var contentHost = canvas.ContentHost;
         if (contentHost != null)
         {
             contentHost.Scale = _scaleFactor;
-            contentHost.TranslationX = _translateX;
-            contentHost.TranslationY = _translateY;
+
+            // Only update translation if requested (not during active zoom)
+            if (updateTranslation)
+            {
+                ClampTranslation(canvas);
+                contentHost.TranslationX = _translateX;
+                contentHost.TranslationY = _translateY;
+            }
         }
 
         // Update the BindableProperty
@@ -166,6 +170,8 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     {
         private readonly ZoomPanCanvasHandler _handler;
         private float _startScale;
+        private float _startTranslateX;
+        private float _startTranslateY;
 
         public ScaleListener(ZoomPanCanvasHandler handler)
         {
@@ -181,8 +187,11 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             }
 
             _startScale = _handler._scaleFactor;
+            _startTranslateX = _handler._translateX;
+            _startTranslateY = _handler._translateY;
             _handler._lastFocusX = detector?.FocusX ?? 0;
             _handler._lastFocusY = detector?.FocusY ?? 0;
+            _handler._isScaling = true;
             return true;
         }
 
@@ -198,16 +207,38 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             // Clamp scale
             newScale = Math.Max(ZoomPanCanvas.MinScale.ToFloat(), Math.Min(ZoomPanCanvas.MaxScale.ToFloat(), newScale));
 
-            // Bei Anchor 0,0 (top-left): Zoom von oben links
+            if (Math.Abs(newScale - oldScale) < 0.001f) return true;
+
+            // Adjust translation proportionally to keep the same relative position
+            var scaleRatio = newScale / _startScale;
+            _handler._translateX = _startTranslateX * scaleRatio;
+            _handler._translateY = _startTranslateY * scaleRatio;
+
             _handler._scaleFactor = newScale;
 
-            // Apply transformation on UI thread
-            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+            // Apply transformation directly to ContentHost during zoom
+            if (_handler.VirtualView is ZoomPanCanvas canvas)
             {
-                _handler.ApplyTransformation();
-            });
+                var contentHost = canvas.ContentHost;
+                if (contentHost != null)
+                {
+                    contentHost.Scale = _handler._scaleFactor;
+                    contentHost.TranslationX = _handler._translateX;
+                    contentHost.TranslationY = _handler._translateY;
+                }
+
+                // Update the BindableProperty
+                canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_handler._scaleFactor);
+            }
 
             return true;
+        }
+
+        public override void OnScaleEnd(ScaleGestureDetector? detector)
+        {
+            // Reset flag and apply final transformation with clamped translation
+            _handler._isScaling = false;
+            _handler.ApplyTransformation(updateTranslation: true);
         }
     }
 
@@ -238,11 +269,8 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             _handler._translateX -= distanceX;
             _handler._translateY -= distanceY;
 
-            // Apply transformation on UI thread
-            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
-            {
-                _handler.ApplyTransformation();
-            });
+            // Apply transformation directly without MainThread dispatch
+            _handler.ApplyTransformation();
 
             return true;
         }
