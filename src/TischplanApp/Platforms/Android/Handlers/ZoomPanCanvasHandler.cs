@@ -35,7 +35,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         // Sync initial scale from VirtualView
         if (VirtualView is ZoomPanCanvas canvas)
         {
-            _scaleFactor = (float)canvas.Scale;
+            _scaleFactor = (float)canvas.Zoom;
         }
 
         // Override touch handling
@@ -112,7 +112,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         }
 
         // Update the BindableProperty
-        canvas.SetValue(ZoomPanCanvas.ScaleProperty, (double)_scaleFactor);
+        canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_scaleFactor);
     }
 
     private void ClampTranslation(ZoomPanCanvas canvas)
@@ -177,7 +177,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             // Sync scale from VirtualView at the start of gesture
             if (_handler.VirtualView is ZoomPanCanvas canvas)
             {
-                _handler._scaleFactor = (float)canvas.Scale;
+                _handler._scaleFactor = (float)canvas.Zoom;
             }
 
             _startScale = _handler._scaleFactor;
@@ -226,7 +226,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             // Sync scale from VirtualView if not checked yet in this pan session
             if (!_hasCheckedScale && _handler.VirtualView is ZoomPanCanvas canvas)
             {
-                var currentScale = (float)canvas.Scale;
+                var currentScale = (float)canvas.Zoom;
                 if (Math.Abs(_handler._scaleFactor - currentScale) > 0.001f)
                 {
                     _handler._scaleFactor = currentScale;

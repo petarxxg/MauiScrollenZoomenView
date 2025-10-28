@@ -100,19 +100,19 @@ public class ZoomPanCanvas : ContentView
         }
     }
 
-    // BindableProperty for Scale
-    public static readonly BindableProperty ScaleProperty = BindableProperty.Create(
-        nameof(Scale),
+    // BindableProperty for Zoom
+    public static readonly BindableProperty ZoomProperty = BindableProperty.Create(
+        nameof(Zoom),
         typeof(double),
         typeof(ZoomPanCanvas),
         1.0,
         BindingMode.TwoWay,
         propertyChanged: OnScalePropertyChanged);
 
-    public double Scale
+    public double Zoom
     {
-        get => (double)GetValue(ScaleProperty);
-        set => SetValue(ScaleProperty, value);
+        get => (double)GetValue(ZoomProperty);
+        set => SetValue(ZoomProperty, value);
     }
 
     private static void OnScalePropertyChanged(BindableObject bindable, object oldValue, object newValue)
@@ -179,9 +179,9 @@ public class ZoomPanCanvas : ContentView
         _contentHost.TranslationY = _yOffset;
 
         // Update the property without triggering the changed event again
-        if (Math.Abs(Scale - scale) > 0.001)
+        if (Math.Abs(Zoom - scale) > 0.001)
         {
-            SetValue(ScaleProperty, scale);
+            SetValue(ZoomProperty, scale);
         }
     }
 
@@ -402,7 +402,7 @@ public class ZoomPanCanvas : ContentView
             _contentHost.Scale = _currentScale;
 
             // Update BindableProperty
-            SetValue(ScaleProperty, _currentScale);
+            SetValue(ZoomProperty, _currentScale);
         }
         else if (e.Status == GestureStatus.Completed || e.Status == GestureStatus.Canceled)
         {

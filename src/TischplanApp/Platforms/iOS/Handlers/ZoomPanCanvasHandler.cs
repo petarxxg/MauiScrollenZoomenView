@@ -24,7 +24,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         // Sync initial scale from VirtualView
         if (VirtualView is ZoomPanCanvas canvas)
         {
-            _scaleFactor = (nfloat)canvas.Scale;
+            _scaleFactor = (nfloat)canvas.Zoom;
         }
 
         // Create native iOS gesture recognizers
@@ -67,7 +67,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             // Sync scale from VirtualView at the start of gesture
             if (VirtualView is ZoomPanCanvas canvas)
             {
-                _scaleFactor = (nfloat)canvas.Scale;
+                _scaleFactor = (nfloat)canvas.Zoom;
             }
 
             _lastScale = _scaleFactor;
@@ -101,7 +101,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             // Sync scale from VirtualView at the start of pan gesture
             if (VirtualView is ZoomPanCanvas canvas)
             {
-                _scaleFactor = (nfloat)canvas.Scale;
+                _scaleFactor = (nfloat)canvas.Zoom;
             }
         }
         else if (gesture.State == UIGestureRecognizerState.Changed)
@@ -141,7 +141,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         }
 
         // Update the BindableProperty
-        canvas.SetValue(ZoomPanCanvas.ScaleProperty, (double)_scaleFactor);
+        canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_scaleFactor);
     }
 
     private void ClampTranslation(ZoomPanCanvas canvas)
