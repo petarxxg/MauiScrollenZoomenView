@@ -53,20 +53,29 @@
 
     <!-- Main Layout with Edit Mode Button -->
     <Grid RowDefinitions="Auto,*">
-        <!-- Edit Mode Toggle Button -->
-        <Button Grid.Row="0"
-                Text="{Binding EditModeText}"
-                Clicked="OnEditModeClicked"
-                Margin="10"
-                HorizontalOptions="Start"
-                BackgroundColor="#2196F3"
-                TextColor="White"
-                Padding="20,10"/>
+        <!-- Buttons -->
+        <HorizontalStackLayout Grid.Row="0" Margin="10" Spacing="10">
+            <!-- Edit Mode Toggle Button -->
+            <Button Text="{Binding EditModeText}"
+                    Clicked="OnEditModeClicked"
+                    BackgroundColor="#2196F3"
+                    TextColor="White"
+                    Padding="20,10"/>
+
+            <!-- Grid Toggle Button -->
+            <Button Text="{Binding GridModeText}"
+                    Clicked="OnGridModeClicked"
+                    BackgroundColor="#4CAF50"
+                    TextColor="White"
+                    Padding="20,10"/>
+        </HorizontalStackLayout>
 
         <!-- Tischplan mit ItemTemplateSelector IsEditMode="{Binding IsEditMode}"-->
         <controls:ZoomPanCanvas Grid.Row="1"
+                               x:Name="ZoomPanCanvas"
                                Tables="{Binding Items}"
                                IsEditMode="{Binding IsEditMode}"
+                               ShowGrid="{Binding ShowGrid}"
                                ItemTappedCommand="{Binding ItemTappedCommand}"
                                ItemTemplateSelector="{StaticResource ItemTemplateSelector}"/>
     </Grid>

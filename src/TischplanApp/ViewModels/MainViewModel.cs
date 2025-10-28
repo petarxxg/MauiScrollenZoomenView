@@ -13,6 +13,7 @@ public class MainViewModel : INotifyPropertyChanged
 {
     private ObservableCollection<PositionableItem> _items;
     private bool _isEditMode;
+    private bool _showGrid;
 
     public MainViewModel()
     {
@@ -60,6 +61,28 @@ public class MainViewModel : INotifyPropertyChanged
     public string EditModeText => IsEditMode ? "Ansicht-Modus" : "Bearbeitungs-Modus";
 
     /// <summary>
+    /// Indicates whether the grid is visible on the canvas.
+    /// </summary>
+    public bool ShowGrid
+    {
+        get => _showGrid;
+        set
+        {
+            if (_showGrid != value)
+            {
+                _showGrid = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(GridModeText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Text to display on the grid toggle button.
+    /// </summary>
+    public string GridModeText => ShowGrid ? "Grid ausblenden" : "Grid einblenden";
+
+    /// <summary>
     /// Command that is executed when an item is tapped.
     /// </summary>
     public ICommand ItemTappedCommand { get; }
@@ -70,6 +93,14 @@ public class MainViewModel : INotifyPropertyChanged
     public void ToggleEditMode()
     {
         IsEditMode = !IsEditMode;
+    }
+
+    /// <summary>
+    /// Toggles the grid visibility on/off.
+    /// </summary>
+    public void ToggleGridMode()
+    {
+        ShowGrid = !ShowGrid;
     }
 
     /// <summary>

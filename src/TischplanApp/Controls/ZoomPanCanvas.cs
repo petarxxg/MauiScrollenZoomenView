@@ -17,6 +17,7 @@ public class ZoomPanCanvas : ContentView
     private readonly Grid _rootGrid;
     private readonly ContentView _contentHost;
     private readonly AbsoluteLayout _canvas;
+    private readonly GraphicsView _gridView;
 
     private double _currentScale = 1.0;
     private double _startScale = 1.0;
@@ -203,6 +204,94 @@ public class ZoomPanCanvas : ContentView
         }
     }
 
+    // BindableProperty for ShowGrid
+    public static readonly BindableProperty ShowGridProperty = BindableProperty.Create(
+        nameof(ShowGrid),
+        typeof(bool),
+        typeof(ZoomPanCanvas),
+        false,
+        propertyChanged: OnShowGridPropertyChanged);
+
+    public bool ShowGrid
+    {
+        get => (bool)GetValue(ShowGridProperty);
+        set => SetValue(ShowGridProperty, value);
+    }
+
+    private static void OnShowGridPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas)
+        {
+            canvas._gridView.IsVisible = (bool)newValue;
+        }
+    }
+
+    // BindableProperty for GridSize
+    public static readonly BindableProperty GridSizeProperty = BindableProperty.Create(
+        nameof(GridSize),
+        typeof(double),
+        typeof(ZoomPanCanvas),
+        50.0,
+        propertyChanged: OnGridSizePropertyChanged);
+
+    public double GridSize
+    {
+        get => (double)GetValue(GridSizeProperty);
+        set => SetValue(GridSizeProperty, value);
+    }
+
+    private static void OnGridSizePropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas)
+        {
+            canvas._gridView.Invalidate();
+        }
+    }
+
+    // BindableProperty for GridColor
+    public static readonly BindableProperty GridColorProperty = BindableProperty.Create(
+        nameof(GridColor),
+        typeof(Color),
+        typeof(ZoomPanCanvas),
+        Colors.Gray,
+        propertyChanged: OnGridColorPropertyChanged);
+
+    public Color GridColor
+    {
+        get => (Color)GetValue(GridColorProperty);
+        set => SetValue(GridColorProperty, value);
+    }
+
+    private static void OnGridColorPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas)
+        {
+            canvas._gridView.Invalidate();
+        }
+    }
+
+    // BindableProperty for GridLineWidth
+    public static readonly BindableProperty GridLineWidthProperty = BindableProperty.Create(
+        nameof(GridLineWidth),
+        typeof(float),
+        typeof(ZoomPanCanvas),
+        1.0f,
+        propertyChanged: OnGridLineWidthPropertyChanged);
+
+    public float GridLineWidth
+    {
+        get => (float)GetValue(GridLineWidthProperty);
+        set => SetValue(GridLineWidthProperty, value);
+    }
+
+    private static void OnGridLineWidthPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas)
+        {
+            canvas._gridView.Invalidate();
+        }
+    }
+
     private void SetScale(double scale)
     {
         // Clamp scale
@@ -237,6 +326,16 @@ public class ZoomPanCanvas : ContentView
             BackgroundColor = CanvasBackgroundColor
         };
 
+        // Create the grid view for background grid
+        _gridView = new GraphicsView
+        {
+            Drawable = new GridDrawable(this),
+            IsVisible = ShowGrid,
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill,
+            InputTransparent = true  // Grid soll keine Touch-Events abfangen
+        };
+
         // Content host that will be transformed
         _contentHost = new ContentView
         {
@@ -247,11 +346,11 @@ public class ZoomPanCanvas : ContentView
             VerticalOptions = LayoutOptions.Start
         };
 
-        // Root grid
+        // Root grid with background grid and content
         _rootGrid = new Grid
         {
             BackgroundColor = RootBackgroundColor,
-            Children = { _contentHost }
+            Children = { _gridView, _contentHost }
         };
 
         Content = _rootGrid;
@@ -326,7 +425,7 @@ public class ZoomPanCanvas : ContentView
             _contentHost.TranslationY = _yOffset;
 
             // Update BindableProperty
-            SetValue(ScaleProperty, _currentScale);
+            SetValue(ZoomProperty, _currentScale);
         }
         e.Handled = true;
     }
@@ -598,5 +697,49 @@ public class ZoomPanCanvas : ContentView
         // Clamp translation: min (to show right/bottom edge) <= offset <= 0 (top-left)
         _xOffset = Math.Max(minTranslateX, Math.Min(0, _xOffset));
         _yOffset = Math.Max(minTranslateY, Math.Min(0, _yOffset));
+    }
+}
+
+/// <summary>
+/// Drawable class for rendering a dashed grid background
+/// </summary>
+internal class GridDrawable : IDrawable
+{
+    private readonly ZoomPanCanvas _canvas;
+
+    public GridDrawable(ZoomPanCanvas canvas)
+    {
+        _canvas = canvas;
+    }
+
+    public void Draw(ICanvas canvas, RectF dirtyRect)
+    {
+        // Get grid parameters
+        var gridSize = _canvas.GridSize;
+        var gridColor = _canvas.GridColor;
+        var lineWidth = _canvas.GridLineWidth;
+
+        if (gridSize <= 0)
+            return;
+
+        // Setup drawing style
+        canvas.StrokeColor = gridColor;
+        canvas.StrokeSize = lineWidth;
+        canvas.StrokeDashPattern = new float[] { 5, 5 };  // Gestrichelte Linie
+
+        var width = dirtyRect.Width;
+        var height = dirtyRect.Height;
+
+        // Draw vertical lines
+        for (double x = 0; x <= width; x += gridSize)
+        {
+            canvas.DrawLine((float)x, 0, (float)x, (float)height);
+        }
+
+        // Draw horizontal lines
+        for (double y = 0; y <= height; y += gridSize)
+        {
+            canvas.DrawLine(0, (float)y, (float)width, (float)y);
+        }
     }
 }

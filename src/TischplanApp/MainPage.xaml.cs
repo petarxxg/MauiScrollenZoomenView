@@ -20,4 +20,12 @@ public partial class MainPage : ContentPage
             viewModel.ToggleEditMode();
         }
     }
+
+    private void OnGridModeClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is MainViewModel viewModel)
+        {
+            viewModel.ToggleGridMode();
+        }
+    }
 }
