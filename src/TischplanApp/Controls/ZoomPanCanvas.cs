@@ -33,6 +33,13 @@ public class ZoomPanCanvas : ContentView
     public double ContentWidth => _canvas.WidthRequest;
     public double ContentHeight => _canvas.HeightRequest;
 
+    // Method for platform handlers to sync internal offset state
+    public void SyncInternalOffsets(double xOffset, double yOffset)
+    {
+        _xOffset = xOffset;
+        _yOffset = yOffset;
+    }
+
     // BindableProperty for Tables (now uses IPositionBase base class)
     public static readonly BindableProperty TablesProperty = BindableProperty.Create(
         nameof(Tables),

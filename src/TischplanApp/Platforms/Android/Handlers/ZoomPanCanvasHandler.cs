@@ -115,7 +115,11 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             }
         }
 
-        // Update the BindableProperty
+        // Sync internal offsets BEFORE calling SetValue
+        // This prevents SetScale() from overwriting our translation values
+        canvas.SyncInternalOffsets(_translateX, _translateY);
+
+        // Update the BindableProperty - this will trigger SetScale() but with synced offsets
         canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_scaleFactor);
     }
 
@@ -135,35 +139,37 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         var scaledHeight = contentHeight * _scaleFactor;
 
         // For top-left anchored content (Anchor 0,0):
-        // - Min translation is negative (content scrolls left/up)
-        // - Max translation is 0 (content at top-left)
-        float minTranslateX, minTranslateY;
+        float minTranslateX, maxTranslateX, minTranslateY, maxTranslateY;
 
         if (scaledWidth <= viewportWidth)
         {
-            // Content fits in viewport horizontally - no scrolling needed
-            minTranslateX = 0;
+            // Content fits in viewport horizontally - allow positioning within viewport
+            minTranslateX = 0;  // Content can be at left edge
+            maxTranslateX = viewportWidth - scaledWidth;  // Content can be at right edge
         }
         else
         {
             // Content is larger - allow scrolling to show all content
-            minTranslateX = -(scaledWidth - viewportWidth);
+            minTranslateX = -(scaledWidth - viewportWidth);  // Show right edge
+            maxTranslateX = 0;  // Show left edge
         }
 
         if (scaledHeight <= viewportHeight)
         {
-            // Content fits in viewport vertically - no scrolling needed
-            minTranslateY = 0;
+            // Content fits in viewport vertically - allow positioning within viewport
+            minTranslateY = 0;  // Content can be at top edge
+            maxTranslateY = viewportHeight - scaledHeight;  // Content can be at bottom edge
         }
         else
         {
             // Content is larger - allow scrolling to show all content
-            minTranslateY = -(scaledHeight - viewportHeight);
+            minTranslateY = -(scaledHeight - viewportHeight);  // Show bottom edge
+            maxTranslateY = 0;  // Show top edge
         }
 
-        // Clamp translation: min (to show right/bottom edge) <= offset <= 0 (top-left)
-        _translateX = Math.Max(minTranslateX, Math.Min(0, _translateX));
-        _translateY = Math.Max(minTranslateY, Math.Min(0, _translateY));
+        // Clamp translation to keep content within viewport
+        _translateX = Math.Max(minTranslateX, Math.Min(maxTranslateX, _translateX));
+        _translateY = Math.Max(minTranslateY, Math.Min(maxTranslateY, _translateY));
     }
 
     private class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener
@@ -180,10 +186,18 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
         public override bool OnScaleBegin(ScaleGestureDetector? detector)
         {
-            // Sync scale from VirtualView at the start of gesture
+            // Sync scale and translation from VirtualView at the start of gesture
             if (_handler.VirtualView is ZoomPanCanvas canvas)
             {
                 _handler._scaleFactor = (float)canvas.Zoom;
+
+                // Sync translation from ContentHost to avoid jumps
+                var contentHost = canvas.ContentHost;
+                if (contentHost != null)
+                {
+                    _handler._translateX = (float)contentHost.TranslationX;
+                    _handler._translateY = (float)contentHost.TranslationY;
+                }
             }
 
             _startScale = _handler._scaleFactor;
@@ -209,10 +223,26 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
             if (Math.Abs(newScale - oldScale) < 0.001f) return true;
 
-            // Adjust translation proportionally to keep the same relative position
+            // Convert focus point to view-relative coordinates
+            var focusXScreen = detector.FocusX;
+            var focusYScreen = detector.FocusY;
+
+            // Get view position on screen
+            var locationOnScreen = new int[2];
+            _handler.PlatformView?.GetLocationOnScreen(locationOnScreen);
+            var viewX = locationOnScreen[0];
+            var viewY = locationOnScreen[1];
+
+            // Calculate focus point relative to view
+            var focusX = focusXScreen - viewX;
+            var focusY = focusYScreen - viewY;
+
             var scaleRatio = newScale / _startScale;
-            _handler._translateX = _startTranslateX * scaleRatio;
-            _handler._translateY = _startTranslateY * scaleRatio;
+
+            // Adjust translation to keep focus point fixed
+            // Formula: newTranslation = focusPoint * (1 - scaleRatio) + startTranslation * scaleRatio
+            _handler._translateX = focusX * (1 - scaleRatio) + _startTranslateX * scaleRatio;
+            _handler._translateY = focusY * (1 - scaleRatio) + _startTranslateY * scaleRatio;
 
             _handler._scaleFactor = newScale;
 
@@ -227,8 +257,8 @@ public class ZoomPanCanvasHandler : ContentViewHandler
                     contentHost.TranslationY = _handler._translateY;
                 }
 
-                // Update the BindableProperty
-                canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_handler._scaleFactor);
+                // DO NOT call SetValue during pinching! It would trigger SetScale() and reset translation
+                // canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_handler._scaleFactor);
             }
 
             return true;
@@ -279,6 +309,18 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         {
             // Reset flag when new touch starts
             _hasCheckedScale = false;
+
+            // Sync translation from ContentHost at the start of pan
+            if (_handler.VirtualView is ZoomPanCanvas canvas)
+            {
+                var contentHost = canvas.ContentHost;
+                if (contentHost != null)
+                {
+                    _handler._translateX = (float)contentHost.TranslationX;
+                    _handler._translateY = (float)contentHost.TranslationY;
+                }
+            }
+
             return base.OnDown(e);
         }
     }

@@ -16,6 +16,9 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     private nfloat _translateX = 0f;
     private nfloat _translateY = 0f;
     private nfloat _lastScale = 1.0f;
+    private nfloat _startScale = 1.0f;
+    private nfloat _startTranslateX = 0f;
+    private nfloat _startTranslateY = 0f;
 
     protected override PlatformView CreatePlatformView()
     {
@@ -64,13 +67,24 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     {
         if (gesture.State == UIGestureRecognizerState.Began)
         {
-            // Sync scale from VirtualView at the start of gesture
+            // Sync scale and translation from VirtualView at the start of gesture
             if (VirtualView is ZoomPanCanvas canvas)
             {
                 _scaleFactor = (nfloat)canvas.Zoom;
+
+                // Sync translation from ContentHost to avoid jumps
+                var contentHost = canvas.ContentHost;
+                if (contentHost != null)
+                {
+                    _translateX = (nfloat)contentHost.TranslationX;
+                    _translateY = (nfloat)contentHost.TranslationY;
+                }
             }
 
             _lastScale = _scaleFactor;
+            _startScale = _scaleFactor;
+            _startTranslateX = _translateX;
+            _startTranslateY = _translateY;
         }
         else if (gesture.State == UIGestureRecognizerState.Changed)
         {
@@ -81,10 +95,40 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             // Clamp scale
             newScale = (NFloat)(Math.Max(ZoomPanCanvas.MinScale, Math.Min(ZoomPanCanvas.MaxScale, newScale)));
 
-            // Bei Anchor 0,0 (top-left): Zoom von oben links
+            // Zoom around focus point (pinch midpoint)
+            if (PlatformView != null)
+            {
+                var location = gesture.LocationInView(PlatformView);
+                var focusX = location.X;
+                var focusY = location.Y;
+                var scaleRatio = newScale / _startScale;
+
+                // Adjust translation to keep focus point fixed
+                // Formula: newTranslation = focusPoint * (1 - scaleRatio) + startTranslation * scaleRatio
+                _translateX = focusX * (1 - scaleRatio) + _startTranslateX * scaleRatio;
+                _translateY = focusY * (1 - scaleRatio) + _startTranslateY * scaleRatio;
+            }
+
             _scaleFactor = newScale;
 
-            // Apply transformation on main thread
+            // Apply transformation directly to ContentHost during pinching
+            if (VirtualView is ZoomPanCanvas canvas)
+            {
+                var contentHost = canvas.ContentHost;
+                if (contentHost != null)
+                {
+                    contentHost.Scale = (double)_scaleFactor;
+                    contentHost.TranslationX = (double)_translateX;
+                    contentHost.TranslationY = (double)_translateY;
+                }
+
+                // DO NOT call SetValue during pinching! It would trigger SetScale() and reset translation
+                // canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_scaleFactor);
+            }
+        }
+        else if (gesture.State == UIGestureRecognizerState.Ended || gesture.State == UIGestureRecognizerState.Cancelled)
+        {
+            // Apply final transformation with clamping
             Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
             {
                 ApplyTransformation();
@@ -98,11 +142,22 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
         if (gesture.State == UIGestureRecognizerState.Began)
         {
-            // Sync scale from VirtualView at the start of pan gesture
+            // Sync scale and translation from VirtualView at the start of pan gesture
             if (VirtualView is ZoomPanCanvas canvas)
             {
                 _scaleFactor = (nfloat)canvas.Zoom;
+
+                // Sync translation from ContentHost to avoid jumps
+                var contentHost = canvas.ContentHost;
+                if (contentHost != null)
+                {
+                    _translateX = (nfloat)contentHost.TranslationX;
+                    _translateY = (nfloat)contentHost.TranslationY;
+                }
             }
+
+            // Reset gesture translation to start fresh
+            gesture.SetTranslation(CGPoint.Empty, PlatformView);
         }
         else if (gesture.State == UIGestureRecognizerState.Changed)
         {
@@ -140,7 +195,11 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             contentHost.TranslationY = (double)_translateY;
         }
 
-        // Update the BindableProperty
+        // Sync internal offsets BEFORE calling SetValue
+        // This prevents SetScale() from overwriting our translation values
+        canvas.SyncInternalOffsets(_translateX, _translateY);
+
+        // Update the BindableProperty - this will trigger SetScale() but with synced offsets
         canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_scaleFactor);
     }
 
