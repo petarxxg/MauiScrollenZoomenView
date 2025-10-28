@@ -25,13 +25,79 @@ public class ZoomPanCanvas : ContentView
     // Public property for Android Handler to access
     public ContentView ContentHost => _contentHost;
 
+    // BindableProperty for Tables (now uses PositionableItem base class)
+    public static readonly BindableProperty TablesProperty = BindableProperty.Create(
+        nameof(Tables),
+        typeof(IEnumerable<PositionableItem>),
+        typeof(ZoomPanCanvas),
+        default(IEnumerable<PositionableItem>),
+        propertyChanged: OnTablesPropertyChanged);
+
+    public IEnumerable<PositionableItem>? Tables
+    {
+        get => (IEnumerable<PositionableItem>?)GetValue(TablesProperty);
+        set => SetValue(TablesProperty, value);
+    }
+
+    private static void OnTablesPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas && newValue is IEnumerable<PositionableItem> tables)
+        {
+            canvas.LoadTables(tables);
+        }
+    }
+
+    // BindableProperty for ItemTemplate
+    public static readonly BindableProperty ItemTemplateProperty = BindableProperty.Create(
+        nameof(ItemTemplate),
+        typeof(DataTemplate),
+        typeof(ZoomPanCanvas),
+        default(DataTemplate),
+        propertyChanged: OnItemTemplatePropertyChanged);
+
+    public DataTemplate? ItemTemplate
+    {
+        get => (DataTemplate?)GetValue(ItemTemplateProperty);
+        set => SetValue(ItemTemplateProperty, value);
+    }
+
+    private static void OnItemTemplatePropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas && canvas.Tables != null)
+        {
+            // Reload tables wenn sich das Template ändert
+            canvas.LoadTables(canvas.Tables);
+        }
+    }
+
+    // BindableProperty for ItemTemplateSelector
+    public static readonly BindableProperty ItemTemplateSelectorProperty = BindableProperty.Create(
+        nameof(ItemTemplateSelector),
+        typeof(DataTemplateSelector),
+        typeof(ZoomPanCanvas),
+        default(DataTemplateSelector),
+        propertyChanged: OnItemTemplateSelectorPropertyChanged);
+
+    public DataTemplateSelector? ItemTemplateSelector
+    {
+        get => (DataTemplateSelector?)GetValue(ItemTemplateSelectorProperty);
+        set => SetValue(ItemTemplateSelectorProperty, value);
+    }
+
+    private static void OnItemTemplateSelectorPropertyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is ZoomPanCanvas canvas && canvas.Tables != null)
+        {
+            // Reload tables wenn sich der Selector ändert
+            canvas.LoadTables(canvas.Tables);
+        }
+    }
+
     public ZoomPanCanvas()
     {
         // Create the canvas
         _canvas = new AbsoluteLayout
         {
-            WidthRequest = 3000,
-            HeightRequest = 2000,
             BackgroundColor = Colors.White
         };
 
@@ -125,57 +191,120 @@ public class ZoomPanCanvas : ContentView
     }
 #endif
 
-    public void LoadTables(IEnumerable<TableModel> tables)
+    public void LoadTables(IEnumerable<PositionableItem> tables)
     {
         _canvas.Children.Clear();
 
-        foreach (var table in tables)
+        if (!tables.Any())
         {
-            var tableView = CreateTableView(table);
-            AbsoluteLayout.SetLayoutBounds(tableView, new Rect(table.X, table.Y, table.Width, table.Height));
-            _canvas.Children.Add(tableView);
+            return;
         }
+
+        // Finde die maximalen Koordinaten um die Canvas-Größe zu berechnen
+        double maxX = 0;
+        double maxY = 0;
+
+        foreach (var item in tables)
+        {
+            var itemView = CreateItemView(item);
+            AbsoluteLayout.SetLayoutBounds(itemView, new Rect(item.X, item.Y, item.Width, item.Height));
+            _canvas.Children.Add(itemView);
+
+            // Berechne die maximalen Koordinaten (Position + Größe)
+            maxX = Math.Max(maxX, item.X + item.Width);
+            maxY = Math.Max(maxY, item.Y + item.Height);
+        }
+
+        // Setze die Canvas-Größe mit etwas Padding (z.B. 50 Pixel Rand)
+        const double padding = 50;
+        _canvas.WidthRequest = maxX + padding;
+        _canvas.HeightRequest = maxY + padding;
     }
 
-    private ContentView CreateTableView(TableModel table)
+    private ContentView CreateItemView(PositionableItem item)
     {
-        var border = new Border
+        ContentView itemView;
+        DataTemplate? template = null;
+
+        // Priorität: ItemTemplateSelector > ItemTemplate > Default
+        if (ItemTemplateSelector != null)
         {
-            Stroke = Colors.DarkBlue,
-            StrokeThickness = 2,
-            BackgroundColor = Colors.LightBlue,
-            StrokeShape = new RoundRectangle { CornerRadius = 8 },
-            Content = new Label
+            template = ItemTemplateSelector.SelectTemplate(item, this);
+        }
+        else if (ItemTemplate != null)
+        {
+            template = ItemTemplate;
+        }
+
+        // Verwende Template wenn vorhanden
+        if (template != null)
+        {
+            var content = template.CreateContent();
+
+            if (content is View view)
             {
-                Text = table.Name,
-                HorizontalOptions = LayoutOptions.Center,
-                VerticalOptions = LayoutOptions.Center,
-                FontSize = 14,
-                FontAttributes = FontAttributes.Bold,
-                TextColor = Colors.DarkBlue
+                itemView = new ContentView
+                {
+                    Content = view
+                };
             }
-        };
-
-        var tableView = new ContentView
-        {
-            Content = border
-        };
-
-        var tapGesture = new TapGestureRecognizer();
-        tapGesture.Tapped += async (s, e) =>
-        {
-            var window = Application.Current?.Windows.FirstOrDefault();
-            if (window?.Page != null)
+            else if (content is ViewCell viewCell)
             {
-                await window.Page.DisplayAlertAsync(
-                    "Tisch Info",
-                    $"Sie haben {table.Name} ausgewählt.\nPosition: ({table.X:F0}, {table.Y:F0})",
-                    "OK").ConfigureAwait(false);
+                itemView = new ContentView
+                {
+                    Content = viewCell.View
+                };
             }
-        };
-        tableView.GestureRecognizers.Add(tapGesture);
+            else
+            {
+                throw new InvalidOperationException("Template must create a View or ViewCell");
+            }
 
-        return tableView;
+            // Setze BindingContext auf das Item
+            itemView.BindingContext = item;
+        }
+        else
+        {
+            // Default-Darstellung
+            var border = new Border
+            {
+                Stroke = Colors.DarkBlue,
+                StrokeThickness = 2,
+                BackgroundColor = Colors.LightBlue,
+                StrokeShape = new RoundRectangle { CornerRadius = 8 },
+                Content = new Label
+                {
+                    Text = item.Name,
+                    HorizontalOptions = LayoutOptions.Center,
+                    VerticalOptions = LayoutOptions.Center,
+                    FontSize = 14,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Colors.DarkBlue
+                }
+            };
+
+            itemView = new ContentView
+            {
+                Content = border
+            };
+
+            // Tap-Gesture nur für Default-Darstellung
+            var tapGesture = new TapGestureRecognizer();
+            tapGesture.Tapped += async (s, e) =>
+            {
+                var window = Application.Current?.Windows.FirstOrDefault();
+                if (window?.Page != null)
+                {
+                    await window.Page.DisplayAlertAsync(
+                        "Item Info",
+                        $"Sie haben {item.Name} ausgewählt.\nPosition: ({item.X:F0}, {item.Y:F0})",
+                        "OK").ConfigureAwait(false);
+                }
+            };
+            itemView.GestureRecognizers.Add(tapGesture);
+        }
+
+        return itemView;
     }
 
     private void OnPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e)
