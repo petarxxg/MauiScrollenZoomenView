@@ -4,6 +4,7 @@ using Microsoft.Maui.Platform;
 using Orderlyze.Foundation.Helper.Extensions;
 using SharedControlsModule.PlatformControls;
 using AView = Android.Views.View;
+using Android.Graphics;
 
 namespace Orderlyze.Platforms.Android.Handlers;
 
@@ -11,11 +12,9 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 {
     private ScaleGestureDetector? _scaleDetector;
     private GestureDetector? _gestureDetector;
-    private float _scaleFactor = 1.0f;
-    private float _translateX = 0f;
-    private float _translateY = 0f;
-    private float _lastFocusX = 0f;
-    private float _lastFocusY = 0f;
+    private Matrix _matrix = new Matrix();
+    private Matrix _savedMatrix = new Matrix();
+    private float[] _matrixValues = new float[9];
     private bool _isScaling = false;
 
     protected override ContentViewGroup CreatePlatformView()
@@ -33,10 +32,24 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     {
         base.ConnectHandler(platformView);
 
-        // Sync initial scale from VirtualView
+        // Sync initial scale and translation from VirtualView
         if (VirtualView is ZoomPanCanvas canvas)
         {
-            _scaleFactor = (float)canvas.Zoom;
+            var scale = (float)canvas.Zoom;
+            var contentHost = canvas.ContentHost;
+            if (contentHost != null)
+            {
+                var translateX = (float)contentHost.TranslationX;
+                var translateY = (float)contentHost.TranslationY;
+
+                // Initialize matrix with current values
+                _matrix.SetScale(scale, scale);
+                _matrix.PostTranslate(translateX, translateY);
+            }
+            else
+            {
+                _matrix.SetScale(scale, scale);
+            }
         }
 
         // Override touch handling
@@ -75,20 +88,24 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
             if (Math.Abs(scrollDelta) > 0.01f)
             {
+                // Get current scale
+                _matrix.GetValues(_matrixValues);
+                var currentScale = _matrixValues[Matrix.MscaleX];
+
                 // Zoom in/out based on scroll direction
                 var zoomFactor = scrollDelta > 0 ? 1.1f : 0.9f;
-                var oldScale = _scaleFactor;
-                var newScale = oldScale * zoomFactor;
+                var newScale = currentScale * zoomFactor;
 
                 // Clamp scale
                 newScale = Math.Max(ZoomPanCanvas.MinScale.ToFloat(), Math.Min(ZoomPanCanvas.MaxScale.ToFloat(), newScale));
 
-                if (Math.Abs(newScale - oldScale) > 0.001f)
+                if (Math.Abs(newScale - currentScale) > 0.001f)
                 {
-                    // Bei Anchor 0,0 (top-left): Zoom von oben links
-                    _scaleFactor = newScale;
+                    // Scale from top-left (0,0)
+                    var scaleFactor = newScale / currentScale;
+                    _matrix.PostScale(scaleFactor, scaleFactor, 0, 0);
 
-                    ApplyTransformation();
+                    ApplyMatrixTransformation();
                 }
 
                 e.Handled = true;
@@ -96,34 +113,42 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         }
     }
 
-    private void ApplyTransformation(bool updateTranslation = true)
+    private void ApplyMatrixTransformation()
     {
         if (VirtualView is not ZoomPanCanvas canvas) return;
 
-        // Access the ContentHost directly
+        // Extract values from matrix
+        _matrix.GetValues(_matrixValues);
+        var scale = _matrixValues[Matrix.MscaleX];
+        var translateX = _matrixValues[Matrix.MtransX];
+        var translateY = _matrixValues[Matrix.MtransY];
+
+        // Clamp translation
+        ClampMatrix(canvas);
+
+        // Re-extract after clamping
+        _matrix.GetValues(_matrixValues);
+        scale = _matrixValues[Matrix.MscaleX];
+        translateX = _matrixValues[Matrix.MtransX];
+        translateY = _matrixValues[Matrix.MtransY];
+
+        // Apply to ContentHost
         var contentHost = canvas.ContentHost;
         if (contentHost != null)
         {
-            contentHost.Scale = _scaleFactor;
-
-            // Only update translation if requested (not during active zoom)
-            if (updateTranslation)
-            {
-                ClampTranslation(canvas);
-                contentHost.TranslationX = _translateX;
-                contentHost.TranslationY = _translateY;
-            }
+            contentHost.Scale = scale;
+            contentHost.TranslationX = translateX;
+            contentHost.TranslationY = translateY;
         }
 
-        // Sync internal offsets BEFORE calling SetValue
-        // This prevents SetScale() from overwriting our translation values
-        canvas.SyncInternalOffsets(_translateX, _translateY);
+        // Sync internal offsets
+        canvas.SyncInternalOffsets(translateX, translateY);
 
-        // Update the BindableProperty - this will trigger SetScale() but with synced offsets
-        canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_scaleFactor);
+        // Update the BindableProperty
+        canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)scale);
     }
 
-    private void ClampTranslation(ZoomPanCanvas canvas)
+    private void ClampMatrix(ZoomPanCanvas canvas)
     {
         // Get content and viewport dimensions from the virtual view
         var contentWidth = (float)canvas.ContentWidth;
@@ -134,48 +159,53 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         if (contentWidth <= 0 || contentHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0)
             return;
 
-        // Calculate scaled content dimensions
-        var scaledWidth = contentWidth * _scaleFactor;
-        var scaledHeight = contentHeight * _scaleFactor;
+        // Extract current values
+        _matrix.GetValues(_matrixValues);
+        var scale = _matrixValues[Matrix.MscaleX];
+        var translateX = _matrixValues[Matrix.MtransX];
+        var translateY = _matrixValues[Matrix.MtransY];
 
-        // For top-left anchored content (Anchor 0,0):
-        // Content should always stick to top-left, never show gray background on top/left
+        // Calculate scaled content dimensions
+        var scaledWidth = contentWidth * scale;
+        var scaledHeight = contentHeight * scale;
+
+        // Calculate boundaries
         float minTranslateX, minTranslateY;
 
         if (scaledWidth <= viewportWidth)
         {
-            // Content fits in viewport horizontally - fix at left edge
             minTranslateX = 0;
         }
         else
         {
-            // Content is larger - allow scrolling to show all content
             minTranslateX = -(scaledWidth - viewportWidth);
         }
 
         if (scaledHeight <= viewportHeight)
         {
-            // Content fits in viewport vertically - fix at top edge
             minTranslateY = 0;
         }
         else
         {
-            // Content is larger - allow scrolling to show all content
             minTranslateY = -(scaledHeight - viewportHeight);
         }
 
-        // Clamp translation: content always stays at or left/above viewport edge
-        // Max is always 0 to prevent gray background on top/left
-        _translateX = Math.Max(minTranslateX, Math.Min(0, _translateX));
-        _translateY = Math.Max(minTranslateY, Math.Min(0, _translateY));
+        // Clamp translation
+        translateX = Math.Max(minTranslateX, Math.Min(0, translateX));
+        translateY = Math.Max(minTranslateY, Math.Min(0, translateY));
+
+        // Update matrix with clamped values
+        _matrix.SetValues(new float[]
+        {
+            scale, 0, translateX,
+            0, scale, translateY,
+            0, 0, 1
+        });
     }
 
     private class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener
     {
         private readonly ZoomPanCanvasHandler _handler;
-        private float _startScale;
-        private float _startTranslateX;
-        private float _startTranslateY;
 
         public ScaleListener(ZoomPanCanvasHandler handler)
         {
@@ -184,25 +214,8 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
         public override bool OnScaleBegin(ScaleGestureDetector? detector)
         {
-            // Sync scale and translation from VirtualView at the start of gesture
-            if (_handler.VirtualView is ZoomPanCanvas canvas)
-            {
-                _handler._scaleFactor = (float)canvas.Zoom;
-
-                // Sync translation from ContentHost to avoid jumps
-                var contentHost = canvas.ContentHost;
-                if (contentHost != null)
-                {
-                    _handler._translateX = (float)contentHost.TranslationX;
-                    _handler._translateY = (float)contentHost.TranslationY;
-                }
-            }
-
-            _startScale = _handler._scaleFactor;
-            _startTranslateX = _handler._translateX;
-            _startTranslateY = _handler._translateY;
-            _handler._lastFocusX = detector?.FocusX ?? 0;
-            _handler._lastFocusY = detector?.FocusY ?? 0;
+            // Save current matrix state
+            _handler._savedMatrix.Set(_handler._matrix);
             _handler._isScaling = true;
             return true;
         }
@@ -211,52 +224,38 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         {
             if (detector == null) return false;
 
-            // Calculate new scale
-            var scaleDelta = detector.ScaleFactor;
-            var oldScale = _handler._scaleFactor;
-            var newScale = oldScale * scaleDelta;
+            // Get current scale from matrix
+            _handler._matrix.GetValues(_handler._matrixValues);
+            var currentScale = _handler._matrixValues[Matrix.MscaleX];
+
+            // Calculate scale factor
+            var scaleFactor = detector.ScaleFactor;
+            var newScale = currentScale * scaleFactor;
 
             // Clamp scale
             newScale = Math.Max(ZoomPanCanvas.MinScale.ToFloat(), Math.Min(ZoomPanCanvas.MaxScale.ToFloat(), newScale));
 
-            if (Math.Abs(newScale - oldScale) < 0.001f) return true;
+            if (Math.Abs(newScale - currentScale) < 0.001f) return true;
 
-            // Convert focus point to view-relative coordinates
-            var focusXScreen = detector.FocusX;
-            var focusYScreen = detector.FocusY;
+            // Scale around the focus point
+            var actualScaleFactor = newScale / currentScale;
+            _handler._matrix.PostScale(actualScaleFactor, actualScaleFactor, detector.FocusX, detector.FocusY);
 
-            // Get view position on screen
-            var locationOnScreen = new int[2];
-            _handler.PlatformView?.GetLocationOnScreen(locationOnScreen);
-            var viewX = locationOnScreen[0];
-            var viewY = locationOnScreen[1];
-
-            // Calculate focus point relative to view
-            var focusX = focusXScreen - viewX;
-            var focusY = focusYScreen - viewY;
-
-            var scaleRatio = newScale / _startScale;
-
-            // Adjust translation to keep focus point fixed
-            // Formula: newTranslation = focusPoint * (1 - scaleRatio) + startTranslation * scaleRatio
-            _handler._translateX = focusX * (1 - scaleRatio) + _startTranslateX * scaleRatio;
-            _handler._translateY = focusY * (1 - scaleRatio) + _startTranslateY * scaleRatio;
-
-            _handler._scaleFactor = newScale;
-
-            // Apply transformation directly to ContentHost during zoom
+            // Apply immediately without clamping (for smooth pinch)
             if (_handler.VirtualView is ZoomPanCanvas canvas)
             {
+                _handler._matrix.GetValues(_handler._matrixValues);
+                var scale = _handler._matrixValues[Matrix.MscaleX];
+                var translateX = _handler._matrixValues[Matrix.MtransX];
+                var translateY = _handler._matrixValues[Matrix.MtransY];
+
                 var contentHost = canvas.ContentHost;
                 if (contentHost != null)
                 {
-                    contentHost.Scale = _handler._scaleFactor;
-                    contentHost.TranslationX = _handler._translateX;
-                    contentHost.TranslationY = _handler._translateY;
+                    contentHost.Scale = scale;
+                    contentHost.TranslationX = translateX;
+                    contentHost.TranslationY = translateY;
                 }
-
-                // DO NOT call SetValue during pinching! It would trigger SetScale() and reset translation
-                // canvas.SetValue(ZoomPanCanvas.ZoomProperty, (double)_handler._scaleFactor);
             }
 
             return true;
@@ -266,14 +265,13 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         {
             // Reset flag and apply final transformation with clamped translation
             _handler._isScaling = false;
-            _handler.ApplyTransformation(updateTranslation: true);
+            _handler.ApplyMatrixTransformation();
         }
     }
 
     private class PanListener : GestureDetector.SimpleOnGestureListener
     {
         private readonly ZoomPanCanvasHandler _handler;
-        private bool _hasCheckedScale = false;
 
         public PanListener(ZoomPanCanvasHandler handler)
         {
@@ -282,40 +280,38 @@ public class ZoomPanCanvasHandler : ContentViewHandler
 
         public override bool OnScroll(MotionEvent? e1, MotionEvent? e2, float distanceX, float distanceY)
         {
-            // Sync scale from VirtualView if not checked yet in this pan session
-            if (!_hasCheckedScale && _handler.VirtualView is ZoomPanCanvas canvas)
-            {
-                var currentScale = (float)canvas.Zoom;
-                if (Math.Abs(_handler._scaleFactor - currentScale) > 0.001f)
-                {
-                    _handler._scaleFactor = currentScale;
-                }
-                _hasCheckedScale = true;
-            }
+            // Don't pan while scaling
+            if (_handler._isScaling)
+                return false;
 
-            // Update translation (note: distance is opposite direction)
-            _handler._translateX -= distanceX;
-            _handler._translateY -= distanceY;
+            // Translate the matrix (note: distance is opposite direction)
+            _handler._matrix.PostTranslate(-distanceX, -distanceY);
 
-            // Apply transformation directly without MainThread dispatch
-            _handler.ApplyTransformation();
+            // Apply transformation with clamping
+            _handler.ApplyMatrixTransformation();
 
             return true;
         }
 
         public override bool OnDown(MotionEvent? e)
         {
-            // Reset flag when new touch starts
-            _hasCheckedScale = false;
-
-            // Sync translation from ContentHost at the start of pan
+            // Ensure matrix is in sync at the start of pan
             if (_handler.VirtualView is ZoomPanCanvas canvas)
             {
                 var contentHost = canvas.ContentHost;
                 if (contentHost != null)
                 {
-                    _handler._translateX = (float)contentHost.TranslationX;
-                    _handler._translateY = (float)contentHost.TranslationY;
+                    var scale = (float)contentHost.Scale;
+                    var translateX = (float)contentHost.TranslationX;
+                    var translateY = (float)contentHost.TranslationY;
+
+                    // Update matrix with current values
+                    _handler._matrix.SetValues(new float[]
+                    {
+                        scale, 0, translateX,
+                        0, scale, translateY,
+                        0, 0, 1
+                    });
                 }
             }
 
