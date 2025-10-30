@@ -113,24 +113,21 @@ public class ZoomPanCanvasHandler : ContentViewHandler
         }
     }
 
-    private void ApplyMatrixTransformation()
+    private void ApplyMatrixTransformation(bool clamp = true)
     {
         if (VirtualView is not ZoomPanCanvas canvas) return;
+
+        // Clamp translation if requested
+        if (clamp)
+        {
+            ClampMatrix(canvas);
+        }
 
         // Extract values from matrix
         _matrix.GetValues(_matrixValues);
         var scale = _matrixValues[Matrix.MscaleX];
         var translateX = _matrixValues[Matrix.MtransX];
         var translateY = _matrixValues[Matrix.MtransY];
-
-        // Clamp translation
-        ClampMatrix(canvas);
-
-        // Re-extract after clamping
-        _matrix.GetValues(_matrixValues);
-        scale = _matrixValues[Matrix.MscaleX];
-        translateX = _matrixValues[Matrix.MtransX];
-        translateY = _matrixValues[Matrix.MtransY];
 
         // Apply to ContentHost
         var contentHost = canvas.ContentHost;
@@ -190,17 +187,20 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             minTranslateY = -(scaledHeight - viewportHeight);
         }
 
-        // Clamp translation
-        translateX = Math.Max(minTranslateX, Math.Min(0, translateX));
-        translateY = Math.Max(minTranslateY, Math.Min(0, translateY));
+        // Calculate clamped values
+        var clampedX = Math.Max(minTranslateX, Math.Min(0, translateX));
+        var clampedY = Math.Max(minTranslateY, Math.Min(0, translateY));
 
-        // Update matrix with clamped values
-        _matrix.SetValues(new float[]
+        // Only update if clamping is needed
+        if (Math.Abs(clampedX - translateX) > 0.1f || Math.Abs(clampedY - translateY) > 0.1f)
         {
-            scale, 0, translateX,
-            0, scale, translateY,
-            0, 0, 1
-        });
+            // Calculate the delta to adjust
+            var deltaX = clampedX - translateX;
+            var deltaY = clampedY - translateY;
+
+            // Apply the correction using PostTranslate to preserve the matrix state
+            _matrix.PostTranslate(deltaX, deltaY);
+        }
     }
 
     private class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener
@@ -272,6 +272,7 @@ public class ZoomPanCanvasHandler : ContentViewHandler
     private class PanListener : GestureDetector.SimpleOnGestureListener
     {
         private readonly ZoomPanCanvasHandler _handler;
+        private bool _isScrolling = false;
 
         public PanListener(ZoomPanCanvasHandler handler)
         {
@@ -284,38 +285,104 @@ public class ZoomPanCanvasHandler : ContentViewHandler
             if (_handler._isScaling)
                 return false;
 
+            _isScrolling = true;
+
             // Translate the matrix (note: distance is opposite direction)
             _handler._matrix.PostTranslate(-distanceX, -distanceY);
 
-            // Apply transformation with clamping
-            _handler.ApplyMatrixTransformation();
+            // Check if we need to clamp (with some over-scroll tolerance)
+            if (_handler.VirtualView is ZoomPanCanvas canvas)
+            {
+                var contentWidth = (float)canvas.ContentWidth;
+                var contentHeight = (float)canvas.ContentHeight;
+                var viewportWidth = (float)canvas.Width;
+                var viewportHeight = (float)canvas.Height;
+
+                if (contentWidth > 0 && contentHeight > 0 && viewportWidth > 0 && viewportHeight > 0)
+                {
+                    _handler._matrix.GetValues(_handler._matrixValues);
+                    var scale = _handler._matrixValues[Matrix.MscaleX];
+                    var translateX = _handler._matrixValues[Matrix.MtransX];
+                    var translateY = _handler._matrixValues[Matrix.MtransY];
+
+                    var scaledWidth = contentWidth * scale;
+                    var scaledHeight = contentHeight * scale;
+
+                    // Allow 50 pixels over-scroll before clamping
+                    const float overScrollTolerance = 50f;
+
+                    float maxX = overScrollTolerance;
+                    float minX = scaledWidth <= viewportWidth ? 0 : -(scaledWidth - viewportWidth) - overScrollTolerance;
+                    float maxY = overScrollTolerance;
+                    float minY = scaledHeight <= viewportHeight ? 0 : -(scaledHeight - viewportHeight) - overScrollTolerance;
+
+                    // Only clamp if significantly outside bounds
+                    if (translateX > maxX || translateX < minX || translateY > maxY || translateY < minY)
+                    {
+                        var clampedX = Math.Max(minX, Math.Min(maxX, translateX));
+                        var clampedY = Math.Max(minY, Math.Min(maxY, translateY));
+
+                        var deltaX = clampedX - translateX;
+                        var deltaY = clampedY - translateY;
+
+                        _handler._matrix.PostTranslate(deltaX, deltaY);
+                    }
+                }
+            }
+
+            // Apply transformation without additional clamping
+            _handler.ApplyMatrixTransformation(clamp: false);
 
             return true;
         }
 
         public override bool OnDown(MotionEvent? e)
         {
-            // Ensure matrix is in sync at the start of pan
+            // Stop any scrolling flag
+            _isScrolling = false;
+
+            // Ensure matrix is in sync at the start of pan - but only if significantly different
             if (_handler.VirtualView is ZoomPanCanvas canvas)
             {
                 var contentHost = canvas.ContentHost;
                 if (contentHost != null)
                 {
-                    var scale = (float)contentHost.Scale;
-                    var translateX = (float)contentHost.TranslationX;
-                    var translateY = (float)contentHost.TranslationY;
+                    // Get current matrix values
+                    _handler._matrix.GetValues(_handler._matrixValues);
+                    var currentScale = _handler._matrixValues[Matrix.MscaleX];
+                    var currentTranslateX = _handler._matrixValues[Matrix.MtransX];
+                    var currentTranslateY = _handler._matrixValues[Matrix.MtransY];
 
-                    // Update matrix with current values
-                    _handler._matrix.SetValues(new float[]
+                    // Get ContentHost values
+                    var hostScale = (float)contentHost.Scale;
+                    var hostTranslateX = (float)contentHost.TranslationX;
+                    var hostTranslateY = (float)contentHost.TranslationY;
+
+                    // Only sync if there's a significant difference (> 1 pixel or 0.01 scale)
+                    if (Math.Abs(currentScale - hostScale) > 0.01f ||
+                        Math.Abs(currentTranslateX - hostTranslateX) > 1.0f ||
+                        Math.Abs(currentTranslateY - hostTranslateY) > 1.0f)
                     {
-                        scale, 0, translateX,
-                        0, scale, translateY,
-                        0, 0, 1
-                    });
+                        // Update matrix with current values
+                        _handler._matrix.SetValues(new float[]
+                        {
+                            hostScale, 0, hostTranslateX,
+                            0, hostScale, hostTranslateY,
+                            0, 0, 1
+                        });
+                    }
                 }
             }
 
             return base.OnDown(e);
+        }
+
+        public override bool OnFling(MotionEvent? e1, MotionEvent? e2, float velocityX, float velocityY)
+        {
+            // Reset scrolling flag
+            _isScrolling = false;
+            // Don't consume the event - return false to allow default behavior
+            return false;
         }
     }
 }
